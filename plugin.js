@@ -328,7 +328,7 @@
           backTo(prev);
           if (a.ltp_provider) return openExternal(a.ltp_url);
           if (a.ltp_open_plugins) return showOnlinePlugins(prev);
-          if (a.ltp_search_torrents) return showTorrents(query, movie, prev, false);
+          if (a.ltp_search_torrents) return showTorrents(query, movie, prev);
         }
       });
     }).catch(function (e) {
