@@ -1,4 +1,4 @@
-/* Lampa Torrent Pro 0.5.0 — самодостаточный плагин. Без рекламы, аналитики и чужих ключей.
+/* Lampa Torrent Pro 0.6.0 — самодостаточный плагин. Без рекламы, аналитики и чужих ключей.
  *
  * Пункт меню «Torrent Pro» (и значок лупы в шапке) открывает хаб:
  *   • поиск фильма/сериала — каталог Lampa с постерами и превью;
@@ -6,12 +6,13 @@
  *   • раздачи по названию, статус источников;
  *   • погода (по умолчанию Белгород).
  * На карточке фильма/сериала появляется кнопка «Раздачи Pro» — список раздач
- * (Internet Archive + ваш Jackett). Воспроизведение — штатный плеер Lampa через TorrServer. */
+ * (Internet Archive + ваш Jackett). Раздачи Internet Archive можно смотреть онлайн сразу;
+ * остальные запускаются штатным плеером Lampa через TorrServer. */
 (function () {
   'use strict';
 
   var ID = 'lampa_torrent_pro';
-  var VERSION = '0.5.0';
+  var VERSION = '0.6.0';
   var TITLE = 'Torrent Pro';
 
   if (window.__ltp_loaded) return;
@@ -90,6 +91,7 @@
           title: String(d.title || id) + (d.year ? ' (' + d.year + ')' : ''),
           size: Number(d.item_size) || 0,
           seeders: 0,
+          archiveId: id,
           link: 'https://archive.org/download/' + encodeURIComponent(id) + '/' + encodeURIComponent(id) + '_archive.torrent',
           magnet: ''
         };
@@ -156,6 +158,75 @@
     }
   }
 
+
+  /* ---------- онлайн-просмотр Internet Archive (без торрента) ---------- */
+
+  var VIDEO_RANK = { mp4: 0, m4v: 1, webm: 2, ogv: 3, mkv: 4, avi: 5 };
+
+  function archiveVideoFiles(meta, id) {
+    var files = (meta && meta.files) || [];
+    var ok = /\.(mp4|m4v|webm|ogv|mkv|avi)$/i;
+    return files.filter(function (f) {
+      return f && ok.test(f.name || '') && Number(f.size) > 1048576;
+    }).map(function (f) {
+      var ext = String(f.name).split('.').pop().toLowerCase();
+      return {
+        name: f.name,
+        size: Number(f.size) || 0,
+        rank: VIDEO_RANK[ext] === undefined ? 9 : VIDEO_RANK[ext],
+        url: 'https://archive.org/download/' + encodeURIComponent(id) + '/' +
+          String(f.name).split('/').map(encodeURIComponent).join('/')
+      };
+    }).sort(function (a, b) { return a.rank - b.rank || a.name.localeCompare(b.name); });
+  }
+
+  function playOnline(file, files, title) {
+    var playlist = files.map(function (f) { return { title: f.name, url: f.url }; });
+    try {
+      Lampa.Player.play({ title: title, url: file.url });
+      if (Lampa.Player.playlist) Lampa.Player.playlist(playlist);
+    } catch (e) {
+      notify('Не удалось запустить плеер: ' + e.message);
+    }
+  }
+
+  function watchArchive(entry, prev) {
+    try { Lampa.Loading.start(); } catch (_) {}
+    getJSON('https://archive.org/metadata/' + encodeURIComponent(entry.archiveId), 20000).then(function (meta) {
+      try { Lampa.Loading.stop(); } catch (_) {}
+      var files = archiveVideoFiles(meta, entry.archiveId);
+      if (!files.length) { notify('Видеофайлов для онлайн-просмотра нет. Попробуйте торрент.'); return; }
+      if (files.length === 1) return playOnline(files[0], files, entry.title);
+      Lampa.Select.show({
+        title: 'Выберите файл',
+        items: files.map(function (f) {
+          return { title: f.name, subtitle: fmtSize(f.size), ltp_file: f };
+        }),
+        onBack: function () { backTo(prev); },
+        onSelect: function (a) { backTo(prev); playOnline(a.ltp_file, files, entry.title); }
+      });
+    }).catch(function (e) {
+      try { Lampa.Loading.stop(); } catch (_) {}
+      notify('Не удалось получить файлы: ' + e.message);
+    });
+  }
+
+  function archiveChoice(entry, movie, prev) {
+    Lampa.Select.show({
+      title: entry.title,
+      items: [
+        { title: 'Смотреть онлайн', subtitle: 'Сразу, без торрента', act: 'watch' },
+        { title: 'Запустить торрентом', subtitle: 'Через TorrServer', act: 'torrent' }
+      ],
+      onBack: function () { backTo(prev); },
+      onSelect: function (a) {
+        backTo(prev);
+        if (a.act === 'watch') watchArchive(entry, prev);
+        else play(entry, movie);
+      }
+    });
+  }
+
   function showTorrents(query, movie, prev, withHub) {
     query = (query || '').trim();
     if (!query) return;
@@ -187,6 +258,7 @@
         onSelect: function (a) {
           backTo(prev);
           if (a.ltp_tmdb) return openSearchCatalog(query);
+          if (a.ltp_entry && a.ltp_entry.archiveId) return archiveChoice(a.ltp_entry, movie, prev);
           if (a.ltp_entry) play(a.ltp_entry, movie);
         }
       });
