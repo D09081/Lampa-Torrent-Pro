@@ -1,4 +1,4 @@
-/* Lampa Torrent Pro 0.6.0 — самодостаточный плагин. Без рекламы, аналитики и чужих ключей.
+/* Lampa Torrent Pro 0.7.0 — самодостаточный плагин. Без рекламы, аналитики и чужих ключей.
  *
  * Пункт меню «Torrent Pro» (и значок лупы в шапке) открывает хаб:
  *   • поиск фильма/сериала — каталог Lampa с постерами и превью;
@@ -6,13 +6,13 @@
  *   • раздачи по названию, статус источников;
  *   • погода (по умолчанию Белгород).
  * На карточке фильма/сериала появляется кнопка «Раздачи Pro» — список раздач
- * (Internet Archive + ваш Jackett). Раздачи Internet Archive можно смотреть онлайн сразу;
+ * (Internet Archive + ваш Jackett), кнопка «Где смотреть» — легальные сервисы (данные TMDB). Раздачи Internet Archive можно смотреть онлайн сразу;
  * остальные запускаются штатным плеером Lampa через TorrServer. */
 (function () {
   'use strict';
 
   var ID = 'lampa_torrent_pro';
-  var VERSION = '0.6.0';
+  var VERSION = '0.7.0';
   var TITLE = 'Torrent Pro';
 
   if (window.__ltp_loaded) return;
@@ -268,6 +268,49 @@
     });
   }
 
+
+  /* ---------- «Где смотреть»: легальные сервисы по данным TMDB ---------- */
+
+  var PROVIDER_GROUPS = [
+    ['flatrate', 'По подписке'],
+    ['free', 'Бесплатно'],
+    ['ads', 'Бесплатно с рекламой'],
+    ['rent', 'Аренда'],
+    ['buy', 'Покупка']
+  ];
+
+  function showProviders(movie, prev) {
+    var region = (str('ltp_region') || 'RU').toUpperCase();
+    if (!movie || !movie.id) { notify('Нет данных о фильме'); return; }
+    if (!Lampa.TMDB || !Lampa.TMDB.api) { notify('TMDB недоступен в этой версии Lampa'); return; }
+    var type = (movie.name && !movie.title) || movie.first_air_date && !movie.release_date ? 'tv' : 'movie';
+    try { Lampa.Loading.start(); } catch (_) {}
+    getJSON(Lampa.TMDB.api(type + '/' + movie.id + '/watch/providers')).then(function (d) {
+      try { Lampa.Loading.stop(); } catch (_) {}
+      var r = d && d.results && d.results[region];
+      var items = [];
+      if (r) {
+        PROVIDER_GROUPS.forEach(function (g) {
+          var list = (r[g[0]] || []).map(function (p) { return p.provider_name; });
+          if (list.length) items.push({ title: g[1], subtitle: list.join(', ') });
+        });
+      }
+      if (!items.length) {
+        notify('Нет данных о легальных сервисах для региона ' + region + '. Данные TMDB могут быть неполными.');
+        return;
+      }
+      Lampa.Select.show({
+        title: 'Где смотреть (' + region + ')',
+        items: items,
+        onBack: function () { backTo(prev); },
+        onSelect: function () { backTo(prev); }
+      });
+    }).catch(function (e) {
+      try { Lampa.Loading.stop(); } catch (_) {}
+      notify('Не удалось получить данные: ' + e.message);
+    });
+  }
+
   /* ---------- каталог с постерами (штатные карточки Lampa) ---------- */
 
   function openCatalog(url, title) {
@@ -465,10 +508,16 @@
           showTorrents(query, movie, currentController(), false);
         });
 
+        var btn2 = $('<div class="full-start__button selector ltp-full-btn2">' + SEARCH_ICON + '<span>Где смотреть</span></div>');
+        btn2.on('hover:enter', function () { showProviders(movie, currentController()); });
+
         var anchor = render.find('.view--torrent').first();
-        if (anchor.length) anchor.after(btn);
-        else render.find('.full-start-new__buttons, .full-start__buttons').first().append(btn);
-        try { Lampa.Controller.collectionAppend(btn); } catch (_) {}
+        if (anchor.length) { anchor.after(btn2); anchor.after(btn); }
+        else {
+          var box = render.find('.full-start-new__buttons, .full-start__buttons').first();
+          box.append(btn); box.append(btn2);
+        }
+        try { Lampa.Controller.collectionAppend(btn); Lampa.Controller.collectionAppend(btn2); } catch (_) {}
       } catch (err) {
         console.error('[Lampa Torrent Pro] card button:', err);
       }
@@ -538,6 +587,7 @@
         'Необязательно. Если пусто — берётся адрес из настроек парсера Lampa. Указывайте только свой сервер.', '');
       addParam('ltp_parser_key', 'input', 'Ключ Jackett',
         'Необязательно. Если пусто — берётся ключ из настроек парсера Lampa.', '');
+      addParam('ltp_region', 'input', 'Регион для «Где смотреть»', 'Код страны, например RU, UA, BY, KZ. По умолчанию RU.', 'RU');
       addParam('ltp_weather_enabled', 'trigger', 'Показывать погоду', 'Температура в шапке Lampa (Open-Meteo).', true);
       addParam('ltp_weather_city', 'input', 'Город для погоды', 'По умолчанию Белгород.', 'Белгород');
       addParam('ltp_torbox_api_key', 'input', 'Ключ TorBox API', 'Ваш личный ключ (пока не используется).', '');
