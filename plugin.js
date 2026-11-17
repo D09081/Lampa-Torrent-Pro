@@ -222,7 +222,7 @@
     });
   }
 
-  function showTorrents(query, movie, prev, withHub) {
+  function showTorrents(query, movie, prev) {
     query = (query || '').trim();
     if (!query) return;
     movie = movie || { id: 0, title: query, original_title: query, name: query };
@@ -237,7 +237,6 @@
         if (size) meta.push(size);
         items.push({ title: r.title, subtitle: meta.join(' • '), ltp_entry: r });
       });
-      if (withHub) items.unshift({ title: 'Открыть в каталоге с постерами', ltp_tmdb: true });
 
       if (!result.items.length) {
         notify('Раздач не найдено.' + (jackettBase() ? '' :
@@ -252,7 +251,6 @@
         onBack: function () { backTo(prev); },
         onSelect: function (a) {
           backTo(prev);
-          if (a.ltp_tmdb) return openSearchCatalog(query);
           if (a.ltp_entry && a.ltp_entry.archiveId) return archiveChoice(a.ltp_entry, movie, prev);
           if (a.ltp_entry) return play(a.ltp_entry, movie);
           if (a.ltp_provider) return openExternal(a.ltp_url);
@@ -347,21 +345,6 @@
     });
   }
 
-  function openSearchCatalog(query) {
-    Lampa.Activity.push({
-      url: 'search/multi', title: 'Поиск: ' + query, component: 'category_full',
-      page: 1, query: encodeURIComponent(query), source: 'tmdb'
-    });
-  }
-
-  function askText(titleText, cb) {
-    var prev = currentController();
-    Lampa.Input.edit({ free: true, title: titleText, nosave: true, value: '' }, function (value) {
-      backTo(prev);
-      value = (value || '').trim();
-      if (value) cb(value, prev);
-    });
-  }
 
   /* ---------- погода (Open-Meteo, запасной вариант — wttr.in; без ключей) ---------- */
 
