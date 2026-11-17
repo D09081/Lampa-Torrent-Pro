@@ -1,18 +1,18 @@
-/* Lampa Torrent Pro 0.7.0 — самодостаточный плагин. Без рекламы, аналитики и чужих ключей.
+/* Lampa Torrent Pro 0.8.0 — самодостаточный плагин. Без рекламы, аналитики и чужих ключей.
  *
  * Пункт меню «Torrent Pro» (и значок лупы в шапке) открывает хаб:
  *   • поиск фильма/сериала — каталог Lampa с постерами и превью;
  *   • новые фильмы, новые сериалы, в тренде — те же карточки с постерами;
  *   • раздачи по названию, статус источников;
  *   • погода (по умолчанию Белгород).
- * На карточке фильма/сериала появляется кнопка «Раздачи Pro» — список раздач
- * (Internet Archive + ваш Jackett), кнопка «Где смотреть» — легальные сервисы (данные TMDB). Раздачи Internet Archive можно смотреть онлайн сразу;
- * остальные запускаются штатным плеером Lampa через TorrServer. */
+ * На карточке фильма/сериала появляется кнопка «Где смотреть»: легальные сервисы (данные TMDB)
+ * и источники для загрузки (Internet Archive + ваш Jackett). Раздачи Internet Archive можно
+ * смотреть онлайн сразу; остальные запускаются штатным плеером Lampa через TorrServer. */
 (function () {
   'use strict';
 
   var ID = 'lampa_torrent_pro';
-  var VERSION = '0.7.0';
+  var VERSION = '0.8.0';
   var TITLE = 'Torrent Pro';
 
   if (window.__ltp_loaded) return;
@@ -279,14 +279,10 @@
     ['buy', 'Покупка']
   ];
 
-  function showProviders(movie, prev) {
-    var region = (str('ltp_region') || 'RU').toUpperCase();
-    if (!movie || !movie.id) { notify('Нет данных о фильме'); return; }
-    if (!Lampa.TMDB || !Lampa.TMDB.api) { notify('TMDB недоступен в этой версии Lampa'); return; }
+  function providerItems(movie, region) {
+    if (!movie || !movie.id || !Lampa.TMDB || !Lampa.TMDB.api) return Promise.resolve([]);
     var type = (movie.name && !movie.title) || movie.first_air_date && !movie.release_date ? 'tv' : 'movie';
-    try { Lampa.Loading.start(); } catch (_) {}
-    getJSON(Lampa.TMDB.api(type + '/' + movie.id + '/watch/providers')).then(function (d) {
-      try { Lampa.Loading.stop(); } catch (_) {}
+    return getJSON(Lampa.TMDB.api(type + '/' + movie.id + '/watch/providers')).then(function (d) {
       var r = d && d.results && d.results[region];
       var items = [];
       if (r) {
@@ -295,19 +291,56 @@
           if (list.length) items.push({ title: g[1], subtitle: list.join(', ') });
         });
       }
+      return items;
+    }).catch(function () { return []; });
+  }
+
+  function buildQuery(movie) {
+    var name = movie.title || movie.name || movie.original_title || movie.original_name || '';
+    var year = String(movie.release_date || movie.first_air_date || '').slice(0, 4);
+    var original = movie.original_title || movie.original_name || '';
+    return (original && /^[\x00-\x7F]+$/.test(original) ? original : name) + (year && movie.title ? ' ' + year : '');
+  }
+
+  // «Где смотреть»: легальные сервисы (TMDB) + источники для загрузки (Internet Archive, ваш Jackett)
+  function showWhere(movie, prev) {
+    var region = (str('ltp_region') || 'RU').toUpperCase();
+    var query = buildQuery(movie || {}).trim();
+    try { Lampa.Loading.start(); } catch (_) {}
+    Promise.all([
+      providerItems(movie, region),
+      query ? searchAll(query) : Promise.resolve({ items: [], errors: [] })
+    ]).then(function (res) {
+      try { Lampa.Loading.stop(); } catch (_) {}
+      var items = res[0].map(function (i) {
+        return { title: i.title + ' (' + region + ')', subtitle: i.subtitle, ltp_info: true };
+      });
+      res[1].items.forEach(function (r) {
+        var meta = ['Загрузка', r.source];
+        if (r.seeders) meta.push('↑' + r.seeders);
+        var size = fmtSize(r.size);
+        if (size) meta.push(size);
+        items.push({ title: r.title, subtitle: meta.join(' • '), ltp_entry: r });
+      });
+      if (res[1].errors.length) notify(res[1].errors.join('; '));
       if (!items.length) {
-        notify('Нет данных о легальных сервисах для региона ' + region + '. Данные TMDB могут быть неполными.');
+        notify('Источников не найдено.' + (jackettBase() ? '' :
+          ' Для раздач укажите Jackett (настройки парсера Lampa). Данные TMDB для региона ' + region + ' могут быть неполными.'));
         return;
       }
       Lampa.Select.show({
-        title: 'Где смотреть (' + region + ')',
+        title: 'Где смотреть',
         items: items,
         onBack: function () { backTo(prev); },
-        onSelect: function () { backTo(prev); }
+        onSelect: function (a) {
+          backTo(prev);
+          if (a.ltp_entry && a.ltp_entry.archiveId) return archiveChoice(a.ltp_entry, movie, prev);
+          if (a.ltp_entry) play(a.ltp_entry, movie);
+        }
       });
     }).catch(function (e) {
       try { Lampa.Loading.stop(); } catch (_) {}
-      notify('Не удалось получить данные: ' + e.message);
+      notify('Ошибка: ' + e.message);
     });
   }
 
@@ -499,25 +532,13 @@
         var render = e.object.activity.render();
         if (render.find('.ltp-full-btn').length) return;
 
-        var btn = $('<div class="full-start__button selector ltp-full-btn">' + MAGNET_ICON + '<span>Раздачи Pro</span></div>');
-        btn.on('hover:enter', function () {
-          var name = movie.title || movie.name || movie.original_title || movie.original_name || '';
-          var year = String(movie.release_date || movie.first_air_date || '').slice(0, 4);
-          var original = movie.original_title || movie.original_name || '';
-          var query = (original && /^[\x00-\x7F]+$/.test(original) ? original : name) + (year && movie.title ? ' ' + year : '');
-          showTorrents(query, movie, currentController(), false);
-        });
-
-        var btn2 = $('<div class="full-start__button selector ltp-full-btn2">' + SEARCH_ICON + '<span>Где смотреть</span></div>');
-        btn2.on('hover:enter', function () { showProviders(movie, currentController()); });
+        var btn = $('<div class="full-start__button selector ltp-full-btn">' + MAGNET_ICON + '<span>Где смотреть</span></div>');
+        btn.on('hover:enter', function () { showWhere(movie, currentController()); });
 
         var anchor = render.find('.view--torrent').first();
-        if (anchor.length) { anchor.after(btn2); anchor.after(btn); }
-        else {
-          var box = render.find('.full-start-new__buttons, .full-start__buttons').first();
-          box.append(btn); box.append(btn2);
-        }
-        try { Lampa.Controller.collectionAppend(btn); Lampa.Controller.collectionAppend(btn2); } catch (_) {}
+        if (anchor.length) anchor.after(btn);
+        else render.find('.full-start-new__buttons, .full-start__buttons').first().append(btn);
+        try { Lampa.Controller.collectionAppend(btn); } catch (_) {}
       } catch (err) {
         console.error('[Lampa Torrent Pro] card button:', err);
       }
