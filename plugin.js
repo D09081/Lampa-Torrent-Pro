@@ -12,13 +12,13 @@
   'use strict';
 
   var ID = 'lampa_torrent_pro';
-  var VERSION = '0.8.1';
+  var VERSION = '1.0.0';
   var TITLE = 'Torrent Pro';
 
   if (window.__ltp_loaded) return;
   window.__ltp_loaded = true;
 
-  var SEARCH_ICON = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>';
+  var SEARCH_ICON = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 3v8a7 7 0 0 0 14 0V3"/><path d="M5 7h4M15 7h4"/></svg>';
   var MAGNET_ICON = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 3v8a7 7 0 0 0 14 0V3"/><path d="M5 7h4M15 7h4"/></svg>';
 
   /* ---------- утилиты ---------- */
@@ -259,7 +259,8 @@
           backTo(prev);
           if (a.ltp_tmdb) return openSearchCatalog(query);
           if (a.ltp_entry && a.ltp_entry.archiveId) return archiveChoice(a.ltp_entry, movie, prev);
-          if (a.ltp_entry) play(a.ltp_entry, movie);
+          if (a.ltp_entry) return play(a.ltp_entry, movie);
+          if (a.ltp_provider) return openExternal(a.ltp_url);
         }
       });
     }).catch(function (e) {
@@ -268,6 +269,14 @@
     });
   }
 
+
+  function openExternal(url) {
+    if (!url) { notify('Каталог не предоставил прямую ссылку на этот сервис.'); return; }
+    try {
+      var w = window.open(url, '_blank');
+      if (!w) Lampa.Utils.copyTextToClipboard(url, function () { notify('Ссылка скопирована.'); }, function () { notify(url); });
+    } catch (_) { notify('Откройте ссылку: ' + url); }
+  }
 
   /* ---------- «Где смотреть»: легальные сервисы по данным TMDB ---------- */
 
@@ -287,9 +296,11 @@
       var items = [];
       if (r) {
         PROVIDER_GROUPS.forEach(function (g) {
-          var list = (r[g[0]] || []).map(function (p) { return p.provider_name; });
-          if (list.length) items.push({ title: g[1], subtitle: list.join(', ') });
+          (r[g[0]] || []).forEach(function (p) {
+            items.push({ title: p.provider_name, subtitle: g[1] + ' • ' + region, ltp_provider: true, ltp_url: r.link || '' });
+          });
         });
+        if (r.link) items.unshift({ title: 'Открыть все варианты на JustWatch', subtitle: 'Доступность в регионе ' + region, ltp_url: r.link, ltp_provider: true });
       }
       return items;
     }).catch(function () { return []; });
@@ -313,7 +324,7 @@
     ]).then(function (res) {
       try { Lampa.Loading.stop(); } catch (_) {}
       var items = res[0].map(function (i) {
-        return { title: i.title + ' (' + region + ')', subtitle: i.subtitle, ltp_info: true };
+        return { title: i.title, subtitle: i.subtitle, ltp_info: true, ltp_provider: i.ltp_provider, ltp_url: i.ltp_url || '' };
       });
       res[1].items.forEach(function (r) {
         var meta = ['Загрузка', r.source];
@@ -403,8 +414,9 @@
     var info = wmo(c.weather_code);
     var days = (dl.time || []).map(function (t, i) {
       var di = wmo(dl.weather_code && dl.weather_code[i]);
+      var mins = dl.temperature_2m_min || [], maxs = dl.temperature_2m_max || [];
       return {
-        date: t, min: dl.temperature_2m_min[i], max: dl.temperature_2m_max[i],
+        date: t, min: mins[i], max: maxs[i],
         text: (di[0] ? di[0] + ' ' : '') + di[1],
         precip: dl.precipitation_probability_max ? dl.precipitation_probability_max[i] : null
       };
@@ -446,7 +458,7 @@
         '&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m' +
         '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max' +
         '&wind_speed_unit=ms&forecast_days=4&timezone=auto';
-      return getJSON(url).then(function (d) {
+      return getJSON(url, 18000).then(function (d) {
         weatherCache.place = place;
         return normOpenMeteo(place, d);
       });
@@ -455,7 +467,11 @@
 
   function weatherWttr(city) {
     var q = isBelgorod(city) ? BELGOROD.lat + ',' + BELGOROD.lon : city;
-    return getJSON('https://wttr.in/' + encodeURIComponent(q) + '?format=j1&lang=ru').then(function (d) {
+    var urls = [
+      'https://wttr.in/' + encodeURIComponent(q) + '?format=j1&lang=ru',
+      'https://wttr.in/' + encodeURIComponent(isBelgorod(city) ? BELGOROD.name : city) + '?format=j1'
+    ];
+    return getJSON(urls[0], 15000).catch(function () { return getJSON(urls[1], 15000); }).then(function (d) {
       return normWttr(isBelgorod(city) ? BELGOROD.name : city, d);
     });
   }
@@ -536,10 +552,12 @@
     var prev = currentController();
     var jb = jackettBase();
     var items = [
-      { title: 'TMDB — каталог, постеры, превью', subtitle: 'Встроен в Lampa' },
-      { title: 'Internet Archive — раздачи', subtitle: 'Открытый каталог, работает без настроек' },
-      { title: 'Jackett — раздачи', subtitle: jb ? 'Подключён: ' + jb.replace(/^https?:\/\//, '') : 'Не настроен — нажмите, чтобы указать', ltp_settings: !jb },
-      { title: 'TorrServer — воспроизведение', subtitle: str('torrserver_url') || str('torrserver_url_two') || 'Адрес не указан (настройки Lampa → TorrServer)' }
+      { title: 'TMDB — информация о фильмах и сервисах', subtitle: 'Доступность онлайн-просмотра по региону' },
+      { title: 'Internet Archive — открытые материалы', subtitle: 'Проверяйте права на конкретный файл', ltp_url: 'https://archive.org/details/movies' },
+      { title: 'Blender Open Movies', subtitle: 'Фильмы с открытыми лицензиями', ltp_url: 'https://studio.blender.org/films/' },
+      { title: 'Public Domain Torrents', subtitle: 'Каталог — проверяйте статус общественного достояния', ltp_url: 'https://www.publicdomaintorrents.info/' },
+      { title: 'Jackett — дополнительные индексаторы', subtitle: jb ? 'Подключён: ' + jb.replace(/^https?:\/\//, '') : 'Не настроен — нажмите, чтобы указать', ltp_settings: !jb },
+      { title: 'TorrServer — воспроизведение', subtitle: str('torrserver_url') || str('torrserver_url_two') || 'Нужен для большинства torrent/magnet-раздач (Настройки Lampa → TorrServer)' }
     ];
     Lampa.Select.show({
       title: 'Источники',
@@ -550,7 +568,7 @@
         if (a.ltp_settings) {
           try { Lampa.Settings.create(ID, { onBack: function () { Lampa.Controller.toggle(prev); } }); }
           catch (_) { notify('Откройте: Настройки → Lampa Torrent Pro'); }
-        }
+        } else if (a.ltp_url) openExternal(a.ltp_url);
       }
     });
   }
@@ -562,25 +580,22 @@
     Lampa.Select.show({
       title: TITLE,
       items: [
-        { title: 'Поиск фильма или сериала', subtitle: 'Каталог с постерами', act: 'search' },
-        { title: 'Новые фильмы', subtitle: 'Сейчас в кино', act: 'new_movies' },
-        { title: 'Новые сериалы', subtitle: 'Выходят сейчас', act: 'new_tv' },
-        { title: 'В тренде', subtitle: 'Фильмы и сериалы недели', act: 'trending' },
-        { title: 'Раздачи по названию', subtitle: 'Internet Archive и ваш Jackett', act: 'torrents' },
-        { title: 'Источники', act: 'sources' },
-        { title: 'Погода', act: 'weather' }
+        { title: 'Каталог фильмов', subtitle: 'Ищите через встроенный поиск Lampa', act: 'hint' },
+        { title: 'Премьеры в кино', subtitle: 'Актуальные фильмы', act: 'new_movies' },
+        { title: 'Сериалы сейчас', subtitle: 'Новые серии и текущие сезоны', act: 'new_tv' },
+        { title: 'Популярное', subtitle: 'Фильмы и сериалы недели', act: 'trending' },
+        { title: 'Где смотреть', subtitle: 'Онлайн-кинотеатры и файлы — на карточке фильма', act: 'hint' },
+        { title: 'Каталоги открытого кино', subtitle: 'Материалы с открытыми лицензиями', act: 'sources' },
+        { title: 'Погода Белгород', subtitle: 'Сейчас и прогноз на несколько дней', act: 'weather' }
       ],
       onBack: function () { backTo(prev); },
       onSelect: function (a) {
         backTo(prev);
         switch (a.act) {
-          case 'search': askText('Название фильма или сериала', openSearchCatalog); break;
-          case 'new_movies': openCatalog('movie/now_playing', 'Новые фильмы'); break;
+          case 'hint': notify('Используйте поиск Lampa, откройте карточку фильма и нажмите «Где смотреть».'); break;
+          case 'new_movies': openCatalog('movie/now_playing', 'Премьеры в кино'); break;
           case 'new_tv': openCatalog('tv/on_the_air', 'Новые сериалы'); break;
           case 'trending': openCatalog('trending/all/week', 'В тренде'); break;
-          case 'torrents':
-            askText('Название для поиска раздач', function (q, p) { showTorrents(q, null, p, true); });
-            break;
           case 'sources': showSources(); break;
           case 'weather': showWeather(); break;
         }
@@ -711,7 +726,6 @@
       version: VERSION,
       hub: hub,
       weather: showWeather,
-      search: function (q) { showTorrents(q, null, 'content', true); },
       advertising: false,
       telemetry: false
     };
