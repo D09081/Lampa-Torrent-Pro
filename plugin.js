@@ -1,18 +1,11 @@
-/* Lampa Torrent Pro 0.8.1 — самодостаточный плагин. Без рекламы, аналитики и чужих ключей.
- *
- * Пункт меню «Torrent Pro» (и значок лупы в шапке) открывает хаб:
- *   • поиск фильма/сериала — каталог Lampa с постерами и превью;
- *   • новые фильмы, новые сериалы, в тренде — те же карточки с постерами;
- *   • раздачи по названию, статус источников;
- *   • погода (по умолчанию Белгород).
- * На карточке фильма/сериала появляется кнопка «Где смотреть»: легальные сервисы (данные TMDB)
- * и источники для загрузки (Internet Archive + ваш Jackett). Раздачи Internet Archive можно
- * смотреть онлайн сразу; остальные запускаются штатным плеером Lampa через TorrServer. */
+/* Lampa Torrent Pro 1.1.0 — единый центр источников и просмотра для Lampa.
+ * Каталог и поиск остаются штатными средствами Lampa. На карточке показываются официальные
+ * варианты просмотра, торрент-источники и подключаемые онлайн-балансеры. Погода — Белгород. */
 (function () {
   'use strict';
 
   var ID = 'lampa_torrent_pro';
-  var VERSION = '1.0.0';
+  var VERSION = '1.1.0';
   var TITLE = 'Torrent Pro';
 
   if (window.__ltp_loaded) return;
@@ -296,8 +289,9 @@
       var items = [];
       if (r) {
         PROVIDER_GROUPS.forEach(function (g) {
-          var names = (r[g[0]] || []).map(function (p) { return p.provider_name; });
-          if (names.length) items.push({ title: g[1], subtitle: names.join(', ') });
+          (r[g[0]] || []).forEach(function (p) {
+            items.push({ title: p.provider_name, subtitle: g[1] + ' • ' + region, ltp_provider: true, ltp_url: r.link || '' });
+          });
         });
         if (r.link) items.unshift({ title: 'Открыть доступные варианты на JustWatch', subtitle: 'Проверить сервисы и переходы для региона ' + region, ltp_url: r.link, ltp_provider: true });
       }
@@ -325,6 +319,8 @@
       var items = res[0].map(function (i) {
         return { title: i.title, subtitle: i.subtitle, ltp_info: true, ltp_provider: i.ltp_provider, ltp_url: i.ltp_url || '' };
       });
+      if (!items.length) items.push({ title: 'Найти официальные сервисы', subtitle: 'Netflix, Prime Video и другие — через JustWatch', ltp_provider: true, ltp_url: 'https://www.justwatch.com/' + region.toLowerCase() + '/search?q=' + encodeURIComponent(query) });
+      items.push({ title: 'Подключить онлайн-источники', subtitle: 'VideoDB, HDRezka, Kinogo и другие балансеры', ltp_open_plugins: true });
       res[1].items.forEach(function (r) {
         var meta = ['Загрузка', r.source];
         if (r.seeders) meta.push('↑' + r.seeders);
@@ -345,7 +341,9 @@
         onSelect: function (a) {
           backTo(prev);
           if (a.ltp_entry && a.ltp_entry.archiveId) return archiveChoice(a.ltp_entry, movie, prev);
-          if (a.ltp_entry) play(a.ltp_entry, movie);
+          if (a.ltp_entry) return play(a.ltp_entry, movie);
+          if (a.ltp_provider) return openExternal(a.ltp_url);
+          if (a.ltp_open_plugins) return showOnlinePlugins(prev);
         }
       });
     }).catch(function (e) {
@@ -381,7 +379,7 @@
   /* ---------- погода (Open-Meteo, запасной вариант — wttr.in; без ключей) ---------- */
 
   var BELGOROD = { name: 'Белгород', lat: 50.5997, lon: 36.5983 };
-  var weatherCache = { at: 0, data: null, place: null, err: '' };
+  var weatherCache = { at: 0, data: null, place: null, err: '', city: '' };
 
   var WMO = {
     0: ['☀', 'Ясно'], 1: ['🌤', 'Преимущественно ясно'], 2: ['⛅', 'Переменная облачность'], 3: ['☁', 'Пасмурно'],
@@ -475,22 +473,52 @@
     });
   }
 
+  function weather7Timer(city) {
+    var point = isBelgorod(city) ? BELGOROD : (weatherCache.place || BELGOROD);
+    var url = 'https://www.7timer.info/bin/api.pl?lon=' + point.lon + '&lat=' + point.lat + '&product=civil&output=json';
+    return getJSON('https://proxy.cors.dev/' + url, 20000).then(function (d) {
+      var rows = d && d.dataseries;
+      if (!rows || !rows.length) throw new Error('Пустой ответ 7Timer');
+      var names = { clearday:'Ясно', clearnight:'Ясно', pcloudyday:'Небольшая облачность', pcloudynight:'Небольшая облачность', mcloudyday:'Облачно', mcloudynight:'Облачно', cloudyday:'Пасмурно', cloudynight:'Пасмурно', humidday:'Туманно', humidnight:'Туманно', lightrainday:'Небольшой дождь', lightrainnight:'Небольшой дождь', oshowerday:'Кратковременный дождь', oshowernight:'Кратковременный дождь', ishowerday:'Местами дождь', ishowernight:'Местами дождь', lightsnowday:'Небольшой снег', lightsnownight:'Небольшой снег', rainday:'Дождь', rainnight:'Дождь', snowday:'Снег', snownight:'Снег', rainsnowday:'Мокрый снег', rainsnownight:'Мокрый снег', tsday:'Гроза', tsnight:'Гроза', tsrainday:'Гроза с дождём', tsrainnight:'Гроза с дождём' };
+      var init = String(d.init || '');
+      var base = init.length >= 10 ? new Date(Date.UTC(Number(init.slice(0,4)), Number(init.slice(4,6))-1, Number(init.slice(6,8)), Number(init.slice(8,10)))) : new Date();
+      var groups = {};
+      rows.forEach(function (r) {
+        var at = new Date(base.getTime() + Number(r.timepoint || 0) * 3600000);
+        var key = at.toISOString().slice(0,10);
+        if (!groups[key]) groups[key] = { date:key, min:Number(r.temp2m), max:Number(r.temp2m), text:names[r.weather] || 'Переменная облачность', temp:Number(r.temp2m) };
+        groups[key].min = Math.min(groups[key].min, Number(r.temp2m));
+        groups[key].max = Math.max(groups[key].max, Number(r.temp2m));
+      });
+      var days = Object.keys(groups).sort().map(function (k) { return groups[k]; });
+      var now = rows[0];
+      var wind = Number(now.wind10m && now.wind10m.speed) || 0;
+      var windScale = [0,0.5,1.5,3.3,5.5,8,10.8,13.9,17.2];
+      return { place: isBelgorod(city) ? BELGOROD.name : city, temp: Number(now.temp2m), feels: Number(now.temp2m), wind: windScale[Math.min(8,wind)] || 0,
+        humidity: parseInt(now.rh2m,10) || 0, icon:'', text:names[now.weather] || 'Прогноз', days:days, src:'7Timer (резерв)' };
+    });
+  }
+
   function loadWeather(force) {
-    if (!force && weatherCache.data && Date.now() - weatherCache.at < 30 * 60 * 1000) {
+    var city = weatherCity();
+    if (!force && weatherCache.data && weatherCache.city === city && Date.now() - weatherCache.at < 30 * 60 * 1000) {
       return Promise.resolve(weatherCache.data);
     }
-    var city = weatherCity();
-    var firstErr = '';
+    var errors = [];
     return weatherOpenMeteo(city).catch(function (e) {
-      firstErr = 'Open-Meteo: ' + e.message;
-      return weatherWttr(city);
+      errors.push('Open-Meteo: ' + e.message);
+      return weatherWttr(city).catch(function (w) {
+        errors.push('wttr.in: ' + w.message);
+        return weather7Timer(city);
+      });
     }).then(function (data) {
       weatherCache.at = Date.now();
       weatherCache.data = data;
+      weatherCache.city = city;
       weatherCache.err = '';
       return data;
     }).catch(function (e) {
-      weatherCache.err = (firstErr ? firstErr + '; ' : '') + 'wttr.in: ' + e.message;
+      weatherCache.err = errors.concat(['7Timer: ' + e.message]).join('; ');
       throw new Error(weatherCache.err);
     });
   }
@@ -509,7 +537,7 @@
     loadWeather(false).then(function (w) {
       setWeatherText(weatherLabel(w));
     }).catch(function () {
-      setWeatherText('!');
+      setWeatherText('нет сети');
     });
   }
 
@@ -545,12 +573,79 @@
     });
   }
 
+  /* ---------- подключаемые онлайн-балансеры ---------- */
+
+  var ONLINE_PLUGINS = [
+    { id:'online_mod', title:'Онлайн МОД', url:'https://nb557.github.io/plugins/online_mod.js', desc:'HDRezka, Collaps, Filmix, FanCDN, Redheadsound, CDNVideoHub и другие. Сторонний плагин.' },
+    { id:'showy', title:'Showy', url:'http://showy.online/m.js', desc:'VideoDB, VideoCDN, HDVB, Kinotochka и другие. Может требовать активацию через Telegram; адрес HTTP.' },
+    { id:'online_cinema', title:'Онлайн Cinema', url:'https://bylampa.github.io/cinema.js', desc:'Дополнительный набор онлайн-источников Cinema.' }
+  ];
+
+  function selectedOnlinePlugins() {
+    var value = get('ltp_online_plugins', []);
+    return Array.isArray(value) ? value : [];
+  }
+
+  function loadOnlinePlugin(plugin) {
+    window.__ltp_external_plugins = window.__ltp_external_plugins || {};
+    if (window.__ltp_external_plugins[plugin.id]) { notify(plugin.title + ': уже подключён в этой сессии.'); return; }
+    if (!Lampa.Utils || !Lampa.Utils.putScriptAsync) {
+      try { Lampa.Utils.copyTextToClipboard(plugin.url); notify('Скопирован адрес ' + plugin.title + '. Добавьте его в Настройки → Расширения.'); }
+      catch (_) { notify('Добавьте вручную: ' + plugin.url); }
+      return;
+    }
+    window.__ltp_external_plugins[plugin.id] = true;
+    try {
+      Lampa.Utils.putScriptAsync([plugin.url], function () { notify(plugin.title + ' загружен. Его кнопка появится на карточках фильма.'); });
+    } catch (e) {
+      window.__ltp_external_plugins[plugin.id] = false;
+      notify('Не удалось подключить ' + plugin.title + ': ' + e.message);
+    }
+  }
+
+  function loadSelectedOnlinePlugins() {
+    selectedOnlinePlugins().forEach(function (id) {
+      var plugin = ONLINE_PLUGINS.filter(function (p) { return p.id === id; })[0];
+      if (plugin) loadOnlinePlugin(plugin);
+    });
+  }
+
+  function showOnlinePlugins(prev) {
+    prev = prev || currentController();
+    var selected = selectedOnlinePlugins();
+    var items = ONLINE_PLUGINS.map(function (p) {
+      var enabled = selected.indexOf(p.id) >= 0;
+      return { title: (enabled ? '✓ ' : '+ ') + p.title, subtitle: p.desc, ltp_plugin: p };
+    });
+    items.push({ title:'Официальные кинотеатры', subtitle:'Netflix, Prime Video, Disney+ и другие — искать доступность через JustWatch', ltp_url:'https://www.justwatch.com/' });
+    items.push({ title:'Kinogo через Lampac', subtitle:'Нужен свой адрес Lampac-сервера; неизвестные публичные серверы не подключаем', ltp_info:true });
+    items.push({ title:'Fovea', subtitle:'Не нашёл подтверждённого рабочего Lampa-балансера с таким названием — не добавляю фиктивную ссылку.', ltp_info:true });
+    Lampa.Select.show({
+      title:'Онлайн-источники', items:items,
+      onBack:function(){ backTo(prev); },
+      onSelect:function(a){
+        if (a.ltp_plugin) {
+          var ids = selectedOnlinePlugins();
+          var at = ids.indexOf(a.ltp_plugin.id);
+          if (at >= 0) ids.splice(at,1); else ids.push(a.ltp_plugin.id);
+          try { Lampa.Storage.set('ltp_online_plugins', ids); } catch (_) {}
+          if (at < 0) loadOnlinePlugin(a.ltp_plugin);
+          else notify(a.ltp_plugin.title + ' отключён при следующем запуске.');
+          showOnlinePlugins(prev);
+        } else if (a.ltp_url) openExternal(a.ltp_url);
+        else if (a.ltp_info) notify(a.subtitle);
+      }
+    });
+  }
+
   /* ---------- источники ---------- */
 
   function showSources() {
     var prev = currentController();
     var jb = jackettBase();
     var items = [
+      { title: 'Онлайн-источники', subtitle: 'Подключить VideoDB, Showy, Online МОД и другие', ltp_plugins: true },
+      { title: 'Netflix и официальные кинотеатры', subtitle: 'Доступность и переходы через JustWatch', ltp_url: 'https://www.justwatch.com/' },
       { title: 'TMDB — информация о фильмах и сервисах', subtitle: 'Доступность онлайн-просмотра по региону' },
       { title: 'Internet Archive — открытые материалы', subtitle: 'Проверяйте права на конкретный файл', ltp_url: 'https://archive.org/details/movies' },
       { title: 'Blender Open Movies', subtitle: 'Фильмы с открытыми лицензиями', ltp_url: 'https://studio.blender.org/films/' },
@@ -568,6 +663,7 @@
           try { Lampa.Settings.create(ID, { onBack: function () { Lampa.Controller.toggle(prev); } }); }
           catch (_) { notify('Откройте: Настройки → Lampa Torrent Pro'); }
         } else if (a.ltp_url) openExternal(a.ltp_url);
+        else if (a.ltp_plugins) showOnlinePlugins(prev);
       }
     });
   }
@@ -582,7 +678,7 @@
         { title: 'Премьеры в кино', subtitle: 'Актуальные фильмы', act: 'new_movies' },
         { title: 'Сериалы сейчас', subtitle: 'Новые серии и текущие сезоны', act: 'new_tv' },
         { title: 'Популярное', subtitle: 'Фильмы и сериалы недели', act: 'trending' },
-        { title: 'Источники просмотра', subtitle: 'Онлайн-кинотеатры и открытые каталоги', act: 'sources' },
+        { title: 'Онлайн-источники', subtitle: 'VideoDB, Showy, онлайн-балансеры и официальные сервисы', act: 'sources' },
         { title: 'Погода Белгород', subtitle: 'Сейчас и прогноз на несколько дней', act: 'weather' }
       ],
       onBack: function () { backTo(prev); },
@@ -715,6 +811,7 @@
     addHeadWidgets();
     addSettings();
     addCardButton();
+    loadSelectedOnlinePlugins();
     updateWeatherWidget();
     setInterval(updateWeatherWidget, 30 * 60 * 1000);
 
