@@ -1,4 +1,4 @@
-/* Lampa Torrent Pro 0.8.0 — самодостаточный плагин. Без рекламы, аналитики и чужих ключей.
+/* Lampa Torrent Pro 0.8.1 — самодостаточный плагин. Без рекламы, аналитики и чужих ключей.
  *
  * Пункт меню «Torrent Pro» (и значок лупы в шапке) открывает хаб:
  *   • поиск фильма/сериала — каталог Lampa с постерами и превью;
@@ -12,7 +12,7 @@
   'use strict';
 
   var ID = 'lampa_torrent_pro';
-  var VERSION = '0.8.0';
+  var VERSION = '0.8.1';
   var TITLE = 'Torrent Pro';
 
   if (window.__ltp_loaded) return;
@@ -368,10 +368,10 @@
     });
   }
 
-  /* ---------- погода (Open-Meteo, без ключей) ---------- */
+  /* ---------- погода (Open-Meteo, запасной вариант — wttr.in; без ключей) ---------- */
 
   var BELGOROD = { name: 'Белгород', lat: 50.5997, lon: 36.5983 };
-  var weatherCache = { at: 0, data: null, place: null };
+  var weatherCache = { at: 0, data: null, place: null, err: '' };
 
   var WMO = {
     0: ['☀', 'Ясно'], 1: ['🌤', 'Преимущественно ясно'], 2: ['⛅', 'Переменная облачность'], 3: ['☁', 'Пасмурно'],
@@ -385,22 +385,78 @@
     85: ['❄', 'Снегопад'], 86: ['❄', 'Сильный снегопад'],
     95: ['⛈', 'Гроза'], 96: ['⛈', 'Гроза с градом'], 99: ['⛈', 'Гроза с сильным градом']
   };
-  function wmo(code) { return WMO[code] || ['•', 'Нет данных']; }
+  function wmo(code) { return WMO[code] || ['', 'Нет данных']; }
   function fmtTemp(t) {
     t = Math.round(Number(t));
     return (t > 0 ? '+' : '') + t + '°';
   }
+  function weatherOn() {
+    var v = get('ltp_weather_enabled', true);
+    return !(v === false || v === 'false' || v === 0 || v === '0');
+  }
+  function weatherCity() { return str('ltp_weather_city') || BELGOROD.name; }
+  function isBelgorod(city) { return city.toLowerCase() === BELGOROD.name.toLowerCase(); }
 
-  function resolvePlace() {
-    var city = str('ltp_weather_city') || BELGOROD.name;
-    if (city.toLowerCase() === BELGOROD.name.toLowerCase()) return Promise.resolve(BELGOROD);
-    if (weatherCache.place && weatherCache.place.query === city) return Promise.resolve(weatherCache.place);
-    var url = 'https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(city) +
-      '&count=1&language=ru&format=json';
-    return getJSON(url).then(function (d) {
-      var r = d && d.results && d.results[0];
-      if (!r) throw new Error('Город не найден');
-      return { name: r.name || city, lat: r.latitude, lon: r.longitude, query: city };
+  function normOpenMeteo(place, d) {
+    var c = d && d.current, dl = (d && d.daily) || {};
+    if (!c || c.temperature_2m === undefined) throw new Error('Пустой ответ Open-Meteo');
+    var info = wmo(c.weather_code);
+    var days = (dl.time || []).map(function (t, i) {
+      var di = wmo(dl.weather_code && dl.weather_code[i]);
+      return {
+        date: t, min: dl.temperature_2m_min[i], max: dl.temperature_2m_max[i],
+        text: (di[0] ? di[0] + ' ' : '') + di[1],
+        precip: dl.precipitation_probability_max ? dl.precipitation_probability_max[i] : null
+      };
+    });
+    return { place: place.name, temp: c.temperature_2m, feels: c.apparent_temperature, wind: c.wind_speed_10m,
+      humidity: c.relative_humidity_2m, icon: info[0], text: info[1], days: days, src: 'Open-Meteo' };
+  }
+
+  function normWttr(name, d) {
+    var cc = d && d.current_condition && d.current_condition[0];
+    if (!cc) throw new Error('Пустой ответ wttr.in');
+    function ru(o) {
+      return (o && o.lang_ru && o.lang_ru[0] && o.lang_ru[0].value) ||
+        (o && o.weatherDesc && o.weatherDesc[0] && o.weatherDesc[0].value) || '';
+    }
+    var days = (d.weather || []).map(function (w) {
+      var hours = w.hourly || [];
+      var pr = Math.max.apply(null, hours.map(function (h) { return Number(h.chanceofrain) || 0; }).concat([0]));
+      return { date: w.date, min: w.mintempC, max: w.maxtempC, text: ru(hours[4] || hours[0]), precip: pr };
+    });
+    return { place: name, temp: cc.temp_C, feels: cc.FeelsLikeC, wind: (Number(cc.windspeedKmph) || 0) / 3.6,
+      humidity: cc.humidity, icon: '', text: ru(cc), days: days, src: 'wttr.in' };
+  }
+
+  function weatherOpenMeteo(city) {
+    var placeP;
+    if (isBelgorod(city)) placeP = Promise.resolve(BELGOROD);
+    else if (weatherCache.place && weatherCache.place.query === city) placeP = Promise.resolve(weatherCache.place);
+    else {
+      placeP = getJSON('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(city) +
+        '&count=1&language=ru&format=json').then(function (d) {
+        var r = d && d.results && d.results[0];
+        if (!r) throw new Error('Город не найден');
+        return { name: r.name || city, lat: r.latitude, lon: r.longitude, query: city };
+      });
+    }
+    return placeP.then(function (place) {
+      var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + place.lat + '&longitude=' + place.lon +
+        '&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m' +
+        '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max' +
+        '&wind_speed_unit=ms&forecast_days=4&timezone=auto';
+      return getJSON(url).then(function (d) {
+        weatherCache.place = place;
+        return normOpenMeteo(place, d);
+      });
+    });
+  }
+
+  function weatherWttr(city) {
+    var q = isBelgorod(city) ? BELGOROD.lat + ',' + BELGOROD.lon : city;
+    return getJSON('https://wttr.in/' + encodeURIComponent(q) + '?format=j1&lang=ru').then(function (d) {
+      return normWttr(isBelgorod(city) ? BELGOROD.name : city, d);
     });
   }
 
@@ -408,49 +464,58 @@
     if (!force && weatherCache.data && Date.now() - weatherCache.at < 30 * 60 * 1000) {
       return Promise.resolve(weatherCache.data);
     }
-    return resolvePlace().then(function (place) {
-      var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + place.lat + '&longitude=' + place.lon +
-        '&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m' +
-        '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max' +
-        '&wind_speed_unit=ms&forecast_days=4&timezone=auto';
-      return getJSON(url).then(function (d) {
-        weatherCache = { at: Date.now(), data: { place: place, raw: d }, place: place };
-        return weatherCache.data;
-      });
+    var city = weatherCity();
+    var firstErr = '';
+    return weatherOpenMeteo(city).catch(function (e) {
+      firstErr = 'Open-Meteo: ' + e.message;
+      return weatherWttr(city);
+    }).then(function (data) {
+      weatherCache.at = Date.now();
+      weatherCache.data = data;
+      weatherCache.err = '';
+      return data;
+    }).catch(function (e) {
+      weatherCache.err = (firstErr ? firstErr + '; ' : '') + 'wttr.in: ' + e.message;
+      throw new Error(weatherCache.err);
     });
   }
 
+  function weatherLabel(w) {
+    return (w.icon ? w.icon + ' ' : '') + fmtTemp(w.temp);
+  }
+
+  function setWeatherText(text) {
+    $('.ltp-weather .ltp-w-txt').text(text);
+    $('.ltp-w-menu .menu__text').text('Погода' + (text && text !== '…' ? ': ' + text : ''));
+  }
+
   function updateWeatherWidget() {
-    if (!get('ltp_weather_enabled', true)) { $('.ltp-weather').remove(); return; }
+    if (!weatherOn()) { $('.ltp-weather').remove(); $('.ltp-w-menu').remove(); return; }
     loadWeather(false).then(function (w) {
-      var c = w.raw.current || {};
-      var info = wmo(c.weather_code);
-      $('.ltp-weather .ltp-w-txt').text(info[0] + ' ' + fmtTemp(c.temperature_2m));
+      setWeatherText(weatherLabel(w));
     }).catch(function () {
-      $('.ltp-weather .ltp-w-txt').text('—');
+      setWeatherText('!');
     });
   }
 
   function showWeather() {
     var prev = currentController();
     loadWeather(true).then(function (w) {
-      var c = w.raw.current || {}, dly = w.raw.daily || {};
-      var info = wmo(c.weather_code);
+      setWeatherText(weatherLabel(w));
       var items = [{
-        title: w.place.name + ': ' + fmtTemp(c.temperature_2m) + ', ' + info[1],
-        subtitle: 'Ощущается ' + fmtTemp(c.apparent_temperature) + ' • ветер ' + Math.round(c.wind_speed_10m) +
-          ' м/с • влажность ' + Math.round(c.relative_humidity_2m) + '%'
+        title: w.place + ': ' + fmtTemp(w.temp) + (w.text ? ', ' + w.text : ''),
+        subtitle: 'Ощущается ' + fmtTemp(w.feels) + ' • ветер ' + Math.round(w.wind) +
+          ' м/с • влажность ' + Math.round(w.humidity) + '% • ' + w.src
       }];
-      var days = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-      (dly.time || []).forEach(function (d, i) {
+      var names = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+      w.days.forEach(function (d, i) {
         if (i === 0) return;
-        var dt = new Date(d + 'T12:00:00');
-        var di = wmo(dly.weather_code[i]);
+        var dt = new Date(d.date + 'T12:00:00');
         items.push({
-          title: days[dt.getDay()] + ' ' + d.slice(8, 10) + '.' + d.slice(5, 7) + ': ' +
-            fmtTemp(dly.temperature_2m_min[i]) + ' … ' + fmtTemp(dly.temperature_2m_max[i]),
-          subtitle: di[0] + ' ' + di[1] + (dly.precipitation_probability_max ?
-            ' • осадки ' + Math.round(dly.precipitation_probability_max[i]) + '%' : '')
+          title: names[dt.getDay()] + ' ' + String(d.date).slice(8, 10) + '.' + String(d.date).slice(5, 7) + ': ' +
+            fmtTemp(d.min) + ' … ' + fmtTemp(d.max),
+          subtitle: (d.text || '') + (d.precip !== null && d.precip !== undefined ?
+            ' • осадки ' + Math.round(d.precip) + '%' : '')
         });
       });
       Lampa.Select.show({
@@ -459,7 +524,10 @@
         onBack: function () { backTo(prev); },
         onSelect: function () { backTo(prev); }
       });
-    }).catch(function (e) { notify('Погода недоступна: ' + e.message); });
+    }).catch(function (e) {
+      setWeatherText('!');
+      notify('Погода недоступна. ' + e.message);
+    });
   }
 
   /* ---------- источники ---------- */
@@ -550,7 +618,7 @@
   function addStyle() {
     if ($('#ltp-style').length) return;
     $('head').append('<style id="ltp-style">' +
-      '.ltp-weather{display:flex;align-items:center;font-size:1.1em;white-space:nowrap;padding:0 .6em}' +
+      '.ltp-weather{display:flex!important;align-items:center;width:auto!important;min-width:3em;padding:0 .6em;font-size:1.1em;white-space:nowrap;color:#fff}' +
       '.ltp-weather .ltp-w-txt{font-weight:600}' +
       '</style>');
   }
@@ -567,6 +635,18 @@
     $('.menu .menu__list').eq(0).append(item);
   }
 
+  function addWeatherMenu() {
+    if (!weatherOn() || $('.menu .ltp-w-menu').length) return;
+    var item = $(
+      '<li class="menu__item selector ltp-w-menu">' +
+        '<div class="menu__ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></div>' +
+        '<div class="menu__text">Погода</div>' +
+      '</li>'
+    );
+    item.on('hover:enter', showWeather);
+    $('.menu .menu__list').eq(0).append(item);
+  }
+
   function addHeadWidgets() {
     try {
       var head = $('.head .head__actions');
@@ -577,7 +657,7 @@
         btn.on('hover:enter click', hub);
         head.prepend(btn);
       }
-      if (get('ltp_weather_enabled', true) && !head.find('.ltp-weather').length) {
+      if (weatherOn() && !head.find('.ltp-weather').length) {
         var w = $('<div class="head__action selector ltp-weather"><span class="ltp-w-txt">…</span></div>');
         w.on('hover:enter click', showWeather);
         head.prepend(w);
@@ -620,6 +700,7 @@
   function start() {
     addStyle();
     addMenu();
+    addWeatherMenu();
     addHeadWidgets();
     addSettings();
     addCardButton();
