@@ -1,0 +1,22 @@
+name: Validate plugin
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check plugin JavaScript syntax
+        run: node --check plugin.js
+      - name: Check installation URL references
+        run: |
+          grep -q "Lampa Torrent Pro" README.md
+          grep -q "d09081.github.io/Lampa-Torrent-Pro/plugin.js" README.md
