@@ -1,58 +1,73 @@
+/* Lampa Torrent Pro — clean-room plugin
+ * No advertising, trackers, bundled API keys, or third-party proxy defaults.
+ * Search providers and playback credentials are configured by the owner.
+ */
 (function () {
-    'use strict';
-    var ID = 'lampa_torrent_pro';
-    if (window.__lampa_torrent_pro_loaded) return;
-    window.__lampa_torrent_pro_loaded = true;
+  'use strict';
 
-    function getSettings() {
-        return {
-            torrserver: Lampa.Storage.get('torrserver_url', 'http://127.0.0.1:8090'),
-            username: Lampa.Storage.get('torrserver_user', ''),
-            password: Lampa.Storage.get('torrserver_password', ''),
-            legalOnly: Lampa.Storage.get('legal_only', true)
-        };
+  var ID = 'lampa_torrent_pro';
+  var VERSION = '0.2.0';
+  if (window.__lampa_torrent_pro_loaded) return;
+  window.__lampa_torrent_pro_loaded = true;
+
+  function get(key, fallback) {
+    try { return Lampa.Storage.get(key, fallback); }
+    catch (_) { return fallback; }
+  }
+
+  function addParam(name, type, title, description, fallback) {
+    if (!Lampa.SettingsApi || !Lampa.SettingsApi.addParam) return;
+    Lampa.SettingsApi.addParam({
+      component: ID,
+      param: { name: name, type: type, default: fallback },
+      field: { name: title, description: description || '' }
+    });
+  }
+
+  function settings() {
+    return {
+      parserUrl: String(get('ltp_parser_url', '') || '').trim(),
+      torboxApiKey: String(get('ltp_torbox_api_key', '') || '').trim(),
+      weatherCity: String(get('ltp_weather_city', 'Белгород') || 'Белгород').trim(),
+      weatherEnabled: !!get('ltp_weather_enabled', true)
+    };
+  }
+
+  function start() {
+    if (!window.Lampa || !Lampa.SettingsApi || !Lampa.Storage) return;
+
+    if (Lampa.SettingsApi.addComponent) {
+      Lampa.SettingsApi.addComponent({
+        component: ID,
+        name: 'Lampa Torrent Pro',
+        icon: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M4 3h16v2H4zm0 4h16v2H4zm0 4h10v2H4zm0 4h16v2H4zm0 4h10v2H4z"/></svg>'
+      });
     }
 
-    function start() {
-        if (!window.Lampa || !Lampa.SettingsApi || !Lampa.Storage) return;
-        if (Lampa.SettingsApi.addComponent) {
-            Lampa.SettingsApi.addComponent({
-                component: ID,
-                name: 'Lampa Torrent Pro',
-                icon: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M4 3h16v2H4zm0 4h16v2H4zm0 4h10v2H4zm0 4h16v2H4zm0 4h10v2H4z"/></svg>'
-            });
-        }
-        if (Lampa.SettingsApi.addParam) {
-            [
-                { name: 'torrserver_url', type: 'input', default: 'http://127.0.0.1:8090', title: 'Адрес TorrServer', description: 'Например: http://192.168.1.10:8090' },
-                { name: 'torrserver_user', type: 'input', default: '', title: 'Логин TorrServer (если требуется)' },
-                { name: 'torrserver_password', type: 'input', default: '', title: 'Пароль TorrServer (если требуется)' },
-                { name: 'legal_only', type: 'trigger', default: true, title: 'Только источники с подтверждаемыми правами', description: 'Проверяйте лицензию каждого материала.' }
-            ].forEach(function (item) {
-                Lampa.SettingsApi.addParam({
-                    component: ID,
-                    param: { name: item.name, type: item.type, default: item.default },
-                    field: { name: item.title, description: item.description || '' }
-                });
-            });
-        }
-        window.lampaTorrentPro = {
-            version: '0.1.1',
-            settings: getSettings,
-            sources: [
-                { id: 'archive', title: 'Internet Archive', url: 'https://archive.org/details/bittorrent', note: 'Права проверяются для каждого элемента.' },
-                { id: 'pdt', title: 'Public Domain Torrents', url: 'https://www.publicdomaintorrents.info/', note: 'Проверяйте статус общественного достояния в своей стране.' },
-                { id: 'blender', title: 'Blender Open Movies', url: 'https://studio.blender.org/films/', note: 'Лицензия указывается на странице фильма.' },
-                { id: 'academic', title: 'Academic Torrents', url: 'https://academictorrents.com/', note: 'Проверяйте лицензию каждого набора.' }
-            ]
-        };
-        console.log('[Lampa Torrent Pro] loaded');
-    }
+    addParam('ltp_parser_url', 'input', 'Адрес поискового парсера',
+      'URL совместимого поискового API. Не указывайте неизвестные адреса, которым не доверяете.', '');
+    addParam('ltp_torbox_api_key', 'input', 'Ключ TorBox API',
+      'Ваш личный ключ. Не используйте ключи из чужих плагинов.', '');
+    addParam('ltp_weather_enabled', 'trigger', 'Показывать погоду', 'Погода для указанного города.', true);
+    addParam('ltp_weather_city', 'input', 'Город для погоды', 'По умолчанию Белгород.', 'Белгород');
 
-    if (window.appready) start();
-    else if (window.Lampa && Lampa.Listener && Lampa.Listener.follow) {
-        Lampa.Listener.follow('app', function (event) {
-            if (event.type === 'ready') start();
-        });
-    }
+    window.lampaTorrentPro = {
+      version: VERSION,
+      settings: settings,
+      advertising: false,
+      telemetry: false,
+      providers: [],
+      status: 'configuration-ready',
+      note: 'Поисковый адаптер и потоковое воспроизведение подключаются отдельно после проверки API провайдера.'
+    };
+
+    console.log('[Lampa Torrent Pro] clean build ' + VERSION);
+  }
+
+  if (window.appready) start();
+  else if (window.Lampa && Lampa.Listener && Lampa.Listener.follow) {
+    Lampa.Listener.follow('app', function (event) {
+      if (event.type === 'ready') start();
+    });
+  }
 })();
