@@ -296,11 +296,10 @@
       var items = [];
       if (r) {
         PROVIDER_GROUPS.forEach(function (g) {
-          (r[g[0]] || []).forEach(function (p) {
-            items.push({ title: p.provider_name, subtitle: g[1] + ' • ' + region, ltp_provider: true, ltp_url: r.link || '' });
-          });
+          var names = (r[g[0]] || []).map(function (p) { return p.provider_name; });
+          if (names.length) items.push({ title: g[1], subtitle: names.join(', ') });
         });
-        if (r.link) items.unshift({ title: 'Открыть все варианты на JustWatch', subtitle: 'Доступность в регионе ' + region, ltp_url: r.link, ltp_provider: true });
+        if (r.link) items.unshift({ title: 'Открыть доступные варианты на JustWatch', subtitle: 'Проверить сервисы и переходы для региона ' + region, ltp_url: r.link, ltp_provider: true });
       }
       return items;
     }).catch(function () { return []; });
