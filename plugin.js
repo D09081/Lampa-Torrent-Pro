@@ -580,12 +580,10 @@
     Lampa.Select.show({
       title: TITLE,
       items: [
-        { title: 'Каталог фильмов', subtitle: 'Ищите через встроенный поиск Lampa', act: 'hint' },
         { title: 'Премьеры в кино', subtitle: 'Актуальные фильмы', act: 'new_movies' },
         { title: 'Сериалы сейчас', subtitle: 'Новые серии и текущие сезоны', act: 'new_tv' },
         { title: 'Популярное', subtitle: 'Фильмы и сериалы недели', act: 'trending' },
-        { title: 'Где смотреть', subtitle: 'Онлайн-кинотеатры и файлы — на карточке фильма', act: 'hint' },
-        { title: 'Каталоги открытого кино', subtitle: 'Материалы с открытыми лицензиями', act: 'sources' },
+        { title: 'Источники просмотра', subtitle: 'Онлайн-кинотеатры и открытые каталоги', act: 'sources' },
         { title: 'Погода Белгород', subtitle: 'Сейчас и прогноз на несколько дней', act: 'weather' }
       ],
       onBack: function () { backTo(prev); },
