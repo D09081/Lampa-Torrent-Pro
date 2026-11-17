@@ -320,6 +320,7 @@
         return { title: i.title, subtitle: i.subtitle, ltp_info: true, ltp_provider: i.ltp_provider, ltp_url: i.ltp_url || '' };
       });
       if (!items.length) items.push({ title: 'Найти официальные сервисы', subtitle: 'Netflix, Prime Video и другие — через JustWatch', ltp_provider: true, ltp_url: 'https://www.justwatch.com/' + region.toLowerCase() + '/search?q=' + encodeURIComponent(query) });
+      else items.push({ title: 'Официальные сервисы: Netflix и другие', subtitle: 'Открыть полный список доступности через JustWatch', ltp_provider: true, ltp_url: 'https://www.justwatch.com/' + region.toLowerCase() + '/search?q=' + encodeURIComponent(query) });
       items.push({ title: 'Подключить онлайн-источники', subtitle: 'VideoDB, HDRezka, Kinogo и другие балансеры', ltp_open_plugins: true });
       res[1].items.forEach(function (r) {
         var meta = ['Загрузка', r.source];
@@ -578,7 +579,8 @@
   var ONLINE_PLUGINS = [
     { id:'online_mod', title:'Онлайн МОД', url:'https://nb557.github.io/plugins/online_mod.js', desc:'HDRezka, Collaps, Filmix, FanCDN, Redheadsound, CDNVideoHub и другие. Сторонний плагин.' },
     { id:'showy', title:'Showy', url:'http://showy.online/m.js', desc:'VideoDB, VideoCDN, HDVB, Kinotochka и другие. Может требовать активацию через Telegram; адрес HTTP.' },
-    { id:'online_cinema', title:'Онлайн Cinema', url:'https://bylampa.github.io/cinema.js', desc:'Дополнительный набор онлайн-источников Cinema.' }
+    { id:'online_cinema', title:'Онлайн Cinema', url:'https://bylampa.github.io/cinema.js', desc:'Дополнительный набор онлайн-источников Cinema.' },
+    { id:'hermes_movie', title:'Hermes Movie (Kinogo)', url:'https://asimut.github.io/l/b.js', desc:'HDRezka, Kinogo, Filmix, VideoCDN и другие. Добавляет отдельную кнопку поиска источников на карточке.' }
   ];
 
   function selectedOnlinePlugins() {
@@ -608,6 +610,12 @@
       var plugin = ONLINE_PLUGINS.filter(function (p) { return p.id === id; })[0];
       if (plugin) loadOnlinePlugin(plugin);
     });
+    var lampac = normalizeBase(str('ltp_lampac_url'));
+    if (lampac && Lampa.Utils && Lampa.Utils.putScriptAsync && !window.__ltp_lampac_loaded) {
+      window.__ltp_lampac_loaded = true;
+      try { Lampa.Utils.putScriptAsync([lampac + '/online.js'], function () { notify('Lampac Online подключён.'); }); }
+      catch (e) { window.__ltp_lampac_loaded = false; notify('Lampac: ' + e.message); }
+    }
   }
 
   function showOnlinePlugins(prev) {
@@ -618,7 +626,7 @@
       return { title: (enabled ? '✓ ' : '+ ') + p.title, subtitle: p.desc, ltp_plugin: p };
     });
     items.push({ title:'Официальные кинотеатры', subtitle:'Netflix, Prime Video, Disney+ и другие — искать доступность через JustWatch', ltp_url:'https://www.justwatch.com/' });
-    items.push({ title:'Kinogo через Lampac', subtitle:'Нужен свой адрес Lampac-сервера; неизвестные публичные серверы не подключаем', ltp_info:true });
+    items.push({ title:'Lampac — 70+ источников', subtitle:'Укажите свой адрес сервера в настройках. Включает Kinogo, VideoDB и другие модули.', ltp_info:true });
     items.push({ title:'Fovea', subtitle:'Не нашёл подтверждённого рабочего Lampa-балансера с таким названием — не добавляю фиктивную ссылку.', ltp_info:true });
     Lampa.Select.show({
       title:'Онлайн-источники', items:items,
@@ -796,6 +804,8 @@
         'Необязательно. Если пусто — берётся адрес из настроек парсера Lampa. Указывайте только свой сервер.', '');
       addParam('ltp_parser_key', 'input', 'Ключ Jackett',
         'Необязательно. Если пусто — берётся ключ из настроек парсера Lampa.', '');
+      addParam('ltp_lampac_url', 'input', 'Адрес своего Lampac-сервера',
+        'Необязательно. Если у вас есть Lampac, укажите адрес, например http://192.168.1.20:9118. Не используйте неизвестные публичные серверы.', '');
       addParam('ltp_region', 'input', 'Регион для «Где смотреть»', 'Код страны, например RU, UA, BY, KZ. По умолчанию RU.', 'RU');
       addParam('ltp_weather_enabled', 'trigger', 'Показывать погоду', 'Температура в шапке Lampa (Open-Meteo).', true);
       addParam('ltp_weather_city', 'input', 'Город для погоды', 'По умолчанию Белгород.', 'Белгород');
