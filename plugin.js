@@ -1,21 +1,24 @@
-/* Lampa Torrent Pro 0.4.0 — самодостаточный плагин. Без рекламы, аналитики и чужих ключей.
- * Пункт меню / кнопка в шапке «Поиск Torrent Pro»: вводишь название фильма или сериала —
- * плагин ищет раздачи в источниках и показывает список. Выбранная раздача уходит в
- * штатный торрент-модуль Lampa (TorrServer).
- * Источники:
- *  - Internet Archive (открытый каталог, работает без настроек);
- *  - ваш Jackett: адрес/ключ берутся из настроек парсера Lampa либо из настроек плагина. */
+/* Lampa Torrent Pro 0.5.0 — самодостаточный плагин. Без рекламы, аналитики и чужих ключей.
+ *
+ * Пункт меню «Torrent Pro» (и значок лупы в шапке) открывает хаб:
+ *   • поиск фильма/сериала — каталог Lampa с постерами и превью;
+ *   • новые фильмы, новые сериалы, в тренде — те же карточки с постерами;
+ *   • раздачи по названию, статус источников;
+ *   • погода (по умолчанию Белгород).
+ * На карточке фильма/сериала появляется кнопка «Раздачи Pro» — список раздач
+ * (Internet Archive + ваш Jackett). Воспроизведение — штатный плеер Lampa через TorrServer. */
 (function () {
   'use strict';
 
   var ID = 'lampa_torrent_pro';
-  var VERSION = '0.4.0';
-  var TITLE = 'Поиск Torrent Pro';
+  var VERSION = '0.5.0';
+  var TITLE = 'Torrent Pro';
 
   if (window.__ltp_loaded) return;
   window.__ltp_loaded = true;
 
   var SEARCH_ICON = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>';
+  var MAGNET_ICON = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 3v8a7 7 0 0 0 14 0V3"/><path d="M5 7h4M15 7h4"/></svg>';
 
   /* ---------- утилиты ---------- */
 
@@ -25,7 +28,6 @@
       return v === undefined || v === null ? fallback : v;
     } catch (_) { return fallback; }
   }
-
   function str(key) { return String(get(key, '') || '').trim(); }
 
   function notify(text) {
@@ -63,9 +65,17 @@
     return url;
   }
 
-  /* ---------- источники ---------- */
+  function jackettBase() { return normalizeBase(str('ltp_parser_url') || str('jackett_url')); }
 
-  // Internet Archive: открытый каталог, у каждого элемента есть торрент.
+  function currentController() {
+    try { return Lampa.Controller.enabled().name || 'content'; } catch (_) { return 'content'; }
+  }
+  function backTo(name) {
+    try { Lampa.Controller.toggle(name); } catch (_) {}
+  }
+
+  /* ---------- источники раздач ---------- */
+
   function searchArchive(query) {
     var q = 'title:(' + query.replace(/["():\\]/g, ' ') + ') AND mediatype:(movies)';
     var url = 'https://archive.org/advancedsearch.php?q=' + encodeURIComponent(q) +
@@ -87,9 +97,8 @@
     });
   }
 
-  // Jackett (ваш собственный): /api/v2.0/indexers/all/results
   function searchJackett(query) {
-    var base = normalizeBase(str('ltp_parser_url') || str('jackett_url'));
+    var base = jackettBase();
     var key = str('ltp_parser_key') || str('jackett_key');
     if (!base) return Promise.resolve([]);
     var url = base + '/api/v2.0/indexers/all/results?apikey=' + encodeURIComponent(key) +
@@ -124,28 +133,17 @@
     });
   }
 
-  /* ---------- интерфейс ---------- */
+  /* ---------- список раздач и запуск ---------- */
 
-  function backTo(prev) {
-    try { Lampa.Controller.toggle(prev); } catch (_) {}
-  }
-
-  function play(entry, query) {
+  function play(entry, movie) {
     var element = {
-      title: entry.title,
-      Title: entry.title,
-      MagnetUri: entry.magnet || '',
-      magnet: entry.magnet || '',
-      Link: entry.link || '',
-      link: entry.link || '',
-      Seeders: entry.seeders,
-      Size: entry.size,
-      size: entry.size,
-      Tracker: entry.source,
-      tracker: entry.source,
+      title: entry.title, Title: entry.title,
+      MagnetUri: entry.magnet || '', magnet: entry.magnet || '',
+      Link: entry.link || '', link: entry.link || '',
+      Seeders: entry.seeders, Size: entry.size, size: entry.size,
+      Tracker: entry.source, tracker: entry.source,
       url: entry.magnet || entry.link
     };
-    var movie = { id: 0, title: query, original_title: query, name: query };
     try {
       Lampa.Torrent.start(element, movie);
     } catch (e) {
@@ -158,75 +156,261 @@
     }
   }
 
-  function showResults(query, result, prev) {
-    var items = [{ title: 'Открыть в каталоге Lampa (TMDB)', ltp_tmdb: true }];
-
-    result.items.forEach(function (r) {
-      var meta = [r.source];
-      if (r.seeders) meta.push('↑' + r.seeders);
-      var size = fmtSize(r.size);
-      if (size) meta.push(size);
-      items.push({ title: r.title, subtitle: meta.join(' • '), ltp_entry: r });
-    });
-
-    if (result.items.length === 0) {
-      var hint = 'Ничего не найдено.';
-      if (!normalizeBase(str('ltp_parser_url') || str('jackett_url'))) {
-        hint += ' Для новых фильмов и сериалов укажите Jackett в настройках парсера Lampa.';
-      }
-      notify(hint);
-    }
-    if (result.errors.length) notify(result.errors.join('; '));
-
-    Lampa.Select.show({
-      title: 'Найдено: ' + query,
-      items: items,
-      onBack: function () { backTo(prev); },
-      onSelect: function (a) {
-        backTo(prev);
-        if (a.ltp_tmdb) return openTmdb(query);
-        if (a.ltp_entry) play(a.ltp_entry, query);
-      }
-    });
-  }
-
-  function openTmdb(query) {
-    Lampa.Activity.push({
-      url: 'search/multi',
-      title: 'Поиск: ' + query,
-      component: 'category_full',
-      page: 1,
-      query: encodeURIComponent(query),
-      source: 'tmdb'
-    });
-  }
-
-  function runSearch(query, prev) {
+  function showTorrents(query, movie, prev, withHub) {
     query = (query || '').trim();
     if (!query) return;
+    movie = movie || { id: 0, title: query, original_title: query, name: query };
     try { Lampa.Loading.start(); } catch (_) {}
     searchAll(query).then(function (result) {
       try { Lampa.Loading.stop(); } catch (_) {}
-      showResults(query, result, prev);
+      var items = [];
+      result.items.forEach(function (r) {
+        var meta = [r.source];
+        if (r.seeders) meta.push('↑' + r.seeders);
+        var size = fmtSize(r.size);
+        if (size) meta.push(size);
+        items.push({ title: r.title, subtitle: meta.join(' • '), ltp_entry: r });
+      });
+      if (withHub) items.unshift({ title: 'Открыть в каталоге с постерами', ltp_tmdb: true });
+
+      if (!result.items.length) {
+        notify('Раздач не найдено.' + (jackettBase() ? '' :
+          ' Для новых фильмов и сериалов укажите Jackett (настройки парсера Lampa).'));
+      }
+      if (result.errors.length) notify(result.errors.join('; '));
+      if (!items.length) { backTo(prev); return; }
+
+      Lampa.Select.show({
+        title: 'Раздачи: ' + query,
+        items: items,
+        onBack: function () { backTo(prev); },
+        onSelect: function (a) {
+          backTo(prev);
+          if (a.ltp_tmdb) return openSearchCatalog(query);
+          if (a.ltp_entry) play(a.ltp_entry, movie);
+        }
+      });
     }).catch(function (e) {
       try { Lampa.Loading.stop(); } catch (_) {}
       notify('Ошибка поиска: ' + e.message);
     });
   }
 
-  function ask() {
-    var prev = 'content';
-    try { prev = Lampa.Controller.enabled().name || 'content'; } catch (_) {}
+  /* ---------- каталог с постерами (штатные карточки Lampa) ---------- */
 
-    Lampa.Input.edit({
-      free: true,
-      title: 'Название фильма или сериала',
-      nosave: true,
-      value: ''
-    }, function (value) {
-      backTo(prev);
-      runSearch(value, prev);
+  function openCatalog(url, title) {
+    Lampa.Activity.push({
+      url: url, title: title, component: 'category_full', page: 1, source: 'tmdb'
     });
+  }
+
+  function openSearchCatalog(query) {
+    Lampa.Activity.push({
+      url: 'search/multi', title: 'Поиск: ' + query, component: 'category_full',
+      page: 1, query: encodeURIComponent(query), source: 'tmdb'
+    });
+  }
+
+  function askText(titleText, cb) {
+    var prev = currentController();
+    Lampa.Input.edit({ free: true, title: titleText, nosave: true, value: '' }, function (value) {
+      backTo(prev);
+      value = (value || '').trim();
+      if (value) cb(value, prev);
+    });
+  }
+
+  /* ---------- погода (Open-Meteo, без ключей) ---------- */
+
+  var BELGOROD = { name: 'Белгород', lat: 50.5997, lon: 36.5983 };
+  var weatherCache = { at: 0, data: null, place: null };
+
+  var WMO = {
+    0: ['☀', 'Ясно'], 1: ['🌤', 'Преимущественно ясно'], 2: ['⛅', 'Переменная облачность'], 3: ['☁', 'Пасмурно'],
+    45: ['🌫', 'Туман'], 48: ['🌫', 'Изморозь'],
+    51: ['🌦', 'Морось'], 53: ['🌦', 'Морось'], 55: ['🌦', 'Сильная морось'],
+    56: ['🌧', 'Ледяная морось'], 57: ['🌧', 'Ледяная морось'],
+    61: ['🌧', 'Небольшой дождь'], 63: ['🌧', 'Дождь'], 65: ['🌧', 'Сильный дождь'],
+    66: ['🌧', 'Ледяной дождь'], 67: ['🌧', 'Ледяной дождь'],
+    71: ['❄', 'Небольшой снег'], 73: ['❄', 'Снег'], 75: ['❄', 'Сильный снег'], 77: ['❄', 'Снежная крупа'],
+    80: ['🌦', 'Ливень'], 81: ['🌧', 'Сильный ливень'], 82: ['🌧', 'Очень сильный ливень'],
+    85: ['❄', 'Снегопад'], 86: ['❄', 'Сильный снегопад'],
+    95: ['⛈', 'Гроза'], 96: ['⛈', 'Гроза с градом'], 99: ['⛈', 'Гроза с сильным градом']
+  };
+  function wmo(code) { return WMO[code] || ['•', 'Нет данных']; }
+  function fmtTemp(t) {
+    t = Math.round(Number(t));
+    return (t > 0 ? '+' : '') + t + '°';
+  }
+
+  function resolvePlace() {
+    var city = str('ltp_weather_city') || BELGOROD.name;
+    if (city.toLowerCase() === BELGOROD.name.toLowerCase()) return Promise.resolve(BELGOROD);
+    if (weatherCache.place && weatherCache.place.query === city) return Promise.resolve(weatherCache.place);
+    var url = 'https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(city) +
+      '&count=1&language=ru&format=json';
+    return getJSON(url).then(function (d) {
+      var r = d && d.results && d.results[0];
+      if (!r) throw new Error('Город не найден');
+      return { name: r.name || city, lat: r.latitude, lon: r.longitude, query: city };
+    });
+  }
+
+  function loadWeather(force) {
+    if (!force && weatherCache.data && Date.now() - weatherCache.at < 30 * 60 * 1000) {
+      return Promise.resolve(weatherCache.data);
+    }
+    return resolvePlace().then(function (place) {
+      var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + place.lat + '&longitude=' + place.lon +
+        '&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m' +
+        '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max' +
+        '&wind_speed_unit=ms&forecast_days=4&timezone=auto';
+      return getJSON(url).then(function (d) {
+        weatherCache = { at: Date.now(), data: { place: place, raw: d }, place: place };
+        return weatherCache.data;
+      });
+    });
+  }
+
+  function updateWeatherWidget() {
+    if (!get('ltp_weather_enabled', true)) { $('.ltp-weather').remove(); return; }
+    loadWeather(false).then(function (w) {
+      var c = w.raw.current || {};
+      var info = wmo(c.weather_code);
+      $('.ltp-weather .ltp-w-txt').text(info[0] + ' ' + fmtTemp(c.temperature_2m));
+    }).catch(function () {
+      $('.ltp-weather .ltp-w-txt').text('—');
+    });
+  }
+
+  function showWeather() {
+    var prev = currentController();
+    loadWeather(true).then(function (w) {
+      var c = w.raw.current || {}, dly = w.raw.daily || {};
+      var info = wmo(c.weather_code);
+      var items = [{
+        title: w.place.name + ': ' + fmtTemp(c.temperature_2m) + ', ' + info[1],
+        subtitle: 'Ощущается ' + fmtTemp(c.apparent_temperature) + ' • ветер ' + Math.round(c.wind_speed_10m) +
+          ' м/с • влажность ' + Math.round(c.relative_humidity_2m) + '%'
+      }];
+      var days = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+      (dly.time || []).forEach(function (d, i) {
+        if (i === 0) return;
+        var dt = new Date(d + 'T12:00:00');
+        var di = wmo(dly.weather_code[i]);
+        items.push({
+          title: days[dt.getDay()] + ' ' + d.slice(8, 10) + '.' + d.slice(5, 7) + ': ' +
+            fmtTemp(dly.temperature_2m_min[i]) + ' … ' + fmtTemp(dly.temperature_2m_max[i]),
+          subtitle: di[0] + ' ' + di[1] + (dly.precipitation_probability_max ?
+            ' • осадки ' + Math.round(dly.precipitation_probability_max[i]) + '%' : '')
+        });
+      });
+      Lampa.Select.show({
+        title: 'Погода',
+        items: items,
+        onBack: function () { backTo(prev); },
+        onSelect: function () { backTo(prev); }
+      });
+    }).catch(function (e) { notify('Погода недоступна: ' + e.message); });
+  }
+
+  /* ---------- источники ---------- */
+
+  function showSources() {
+    var prev = currentController();
+    var jb = jackettBase();
+    var items = [
+      { title: 'TMDB — каталог, постеры, превью', subtitle: 'Встроен в Lampa' },
+      { title: 'Internet Archive — раздачи', subtitle: 'Открытый каталог, работает без настроек' },
+      { title: 'Jackett — раздачи', subtitle: jb ? 'Подключён: ' + jb.replace(/^https?:\/\//, '') : 'Не настроен — нажмите, чтобы указать', ltp_settings: !jb },
+      { title: 'TorrServer — воспроизведение', subtitle: str('torrserver_url') || str('torrserver_url_two') || 'Адрес не указан (настройки Lampa → TorrServer)' }
+    ];
+    Lampa.Select.show({
+      title: 'Источники',
+      items: items,
+      onBack: function () { backTo(prev); },
+      onSelect: function (a) {
+        backTo(prev);
+        if (a.ltp_settings) {
+          try { Lampa.Settings.create(ID, { onBack: function () { Lampa.Controller.toggle(prev); } }); }
+          catch (_) { notify('Откройте: Настройки → Lampa Torrent Pro'); }
+        }
+      }
+    });
+  }
+
+  /* ---------- хаб ---------- */
+
+  function hub() {
+    var prev = currentController();
+    Lampa.Select.show({
+      title: TITLE,
+      items: [
+        { title: 'Поиск фильма или сериала', subtitle: 'Каталог с постерами', act: 'search' },
+        { title: 'Новые фильмы', subtitle: 'Сейчас в кино', act: 'new_movies' },
+        { title: 'Новые сериалы', subtitle: 'Выходят сейчас', act: 'new_tv' },
+        { title: 'В тренде', subtitle: 'Фильмы и сериалы недели', act: 'trending' },
+        { title: 'Раздачи по названию', subtitle: 'Internet Archive и ваш Jackett', act: 'torrents' },
+        { title: 'Источники', act: 'sources' },
+        { title: 'Погода', act: 'weather' }
+      ],
+      onBack: function () { backTo(prev); },
+      onSelect: function (a) {
+        backTo(prev);
+        switch (a.act) {
+          case 'search': askText('Название фильма или сериала', openSearchCatalog); break;
+          case 'new_movies': openCatalog('movie/now_playing', 'Новые фильмы'); break;
+          case 'new_tv': openCatalog('tv/on_the_air', 'Новые сериалы'); break;
+          case 'trending': openCatalog('trending/all/week', 'В тренде'); break;
+          case 'torrents':
+            askText('Название для поиска раздач', function (q, p) { showTorrents(q, null, p, true); });
+            break;
+          case 'sources': showSources(); break;
+          case 'weather': showWeather(); break;
+        }
+      }
+    });
+  }
+
+  /* ---------- кнопка на карточке фильма/сериала ---------- */
+
+  function addCardButton() {
+    if (!Lampa.Listener || !Lampa.Listener.follow) return;
+    Lampa.Listener.follow('full', function (e) {
+      if (e.type !== 'complite') return;
+      try {
+        var movie = e.data && e.data.movie;
+        if (!movie) return;
+        var render = e.object.activity.render();
+        if (render.find('.ltp-full-btn').length) return;
+
+        var btn = $('<div class="full-start__button selector ltp-full-btn">' + MAGNET_ICON + '<span>Раздачи Pro</span></div>');
+        btn.on('hover:enter', function () {
+          var name = movie.title || movie.name || movie.original_title || movie.original_name || '';
+          var year = String(movie.release_date || movie.first_air_date || '').slice(0, 4);
+          var original = movie.original_title || movie.original_name || '';
+          var query = (original && /^[\x00-\x7F]+$/.test(original) ? original : name) + (year && movie.title ? ' ' + year : '');
+          showTorrents(query, movie, currentController(), false);
+        });
+
+        var anchor = render.find('.view--torrent').first();
+        if (anchor.length) anchor.after(btn);
+        else render.find('.full-start-new__buttons, .full-start__buttons').first().append(btn);
+        try { Lampa.Controller.collectionAppend(btn); } catch (_) {}
+      } catch (err) {
+        console.error('[Lampa Torrent Pro] card button:', err);
+      }
+    });
+  }
+
+  /* ---------- меню, шапка, настройки ---------- */
+
+  function addStyle() {
+    if ($('#ltp-style').length) return;
+    $('head').append('<style id="ltp-style">' +
+      '.ltp-weather{display:flex;align-items:center;font-size:1.1em;white-space:nowrap;padding:0 .6em}' +
+      '.ltp-weather .ltp-w-txt{font-weight:600}' +
+      '</style>');
   }
 
   function addMenu() {
@@ -237,23 +421,27 @@
         '<div class="menu__text">' + TITLE + '</div>' +
       '</li>'
     );
-    item.on('hover:enter', ask);
+    item.on('hover:enter', hub);
     $('.menu .menu__list').eq(0).append(item);
   }
 
-  function addHeadButton() {
+  function addHeadWidgets() {
     try {
       var head = $('.head .head__actions');
-      if (head.length && !head.find('.ltp-head-btn').length) {
+      if (!head.length) return;
+      if (!head.find('.ltp-head-btn').length) {
         var btn = $('<div class="head__action selector ltp-head-btn">' +
           SEARCH_ICON.replace('width="24" height="24"', 'width="22" height="22"') + '</div>');
-        btn.on('hover:enter click', ask);
+        btn.on('hover:enter click', hub);
         head.prepend(btn);
+      }
+      if (get('ltp_weather_enabled', true) && !head.find('.ltp-weather').length) {
+        var w = $('<div class="head__action selector ltp-weather"><span class="ltp-w-txt">…</span></div>');
+        w.on('hover:enter click', showWeather);
+        head.prepend(w);
       }
     } catch (_) {}
   }
-
-  /* ---------- настройки ---------- */
 
   function addParam(name, type, title, description, fallback) {
     if (!Lampa.SettingsApi || !Lampa.SettingsApi.addParam) return;
@@ -278,22 +466,28 @@
         'Необязательно. Если пусто — берётся адрес из настроек парсера Lampa. Указывайте только свой сервер.', '');
       addParam('ltp_parser_key', 'input', 'Ключ Jackett',
         'Необязательно. Если пусто — берётся ключ из настроек парсера Lampa.', '');
-      addParam('ltp_torbox_api_key', 'input', 'Ключ TorBox API',
-        'Ваш личный ключ (пока не используется).', '');
-      addParam('ltp_weather_enabled', 'trigger', 'Показывать погоду', 'Погода для указанного города (пока не реализовано).', true);
+      addParam('ltp_weather_enabled', 'trigger', 'Показывать погоду', 'Температура в шапке Lampa (Open-Meteo).', true);
       addParam('ltp_weather_city', 'input', 'Город для погоды', 'По умолчанию Белгород.', 'Белгород');
+      addParam('ltp_torbox_api_key', 'input', 'Ключ TorBox API', 'Ваш личный ключ (пока не используется).', '');
     } catch (e) {
       console.error('[Lampa Torrent Pro] settings error:', e);
     }
   }
 
   function start() {
+    addStyle();
     addMenu();
-    addHeadButton();
+    addHeadWidgets();
     addSettings();
+    addCardButton();
+    updateWeatherWidget();
+    setInterval(updateWeatherWidget, 30 * 60 * 1000);
+
     window.lampaTorrentPro = {
       version: VERSION,
-      search: function (q) { runSearch(q, 'content'); },
+      hub: hub,
+      weather: showWeather,
+      search: function (q) { showTorrents(q, null, 'content', true); },
       advertising: false,
       telemetry: false
     };
