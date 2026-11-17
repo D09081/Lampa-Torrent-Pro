@@ -41,13 +41,15 @@
       var xhr = new XMLHttpRequest();
       xhr.open('GET', url, true);
       xhr.timeout = timeout || 15000;
+      xhr.withCredentials = false;
       xhr.onload = function () {
-        if (xhr.status < 200 || xhr.status >= 300) return reject(new Error('HTTP ' + xhr.status));
+        if (xhr.status < 200 || xhr.status >= 300) return reject(new Error('HTTP ' + xhr.status + (xhr.responseText ? ': ' + String(xhr.responseText).slice(0,120) : '')));
         try { resolve(JSON.parse(xhr.responseText)); }
-        catch (e) { reject(new Error('Некорректный ответ')); }
+        catch (e) { reject(new Error('Ответ не JSON: ' + String(xhr.responseText || '').slice(0,80))); }
       };
-      xhr.onerror = function () { reject(new Error('Сеть недоступна')); };
-      xhr.ontimeout = function () { reject(new Error('Таймаут')); };
+      xhr.onerror = function () { reject(new Error('Сетевой запрос заблокирован: проверьте DNS, HTTPS и CORS')); };
+      xhr.ontimeout = function () { reject(new Error('Таймаут запроса')); };
+      xhr.onabort = function () { reject(new Error('Запрос отменён')); };
       xhr.send();
     });
   }
@@ -311,45 +313,29 @@
     var region = (str('ltp_region') || 'RU').toUpperCase();
     var query = buildQuery(movie || {}).trim();
     try { Lampa.Loading.start(); } catch (_) {}
-    Promise.all([
-      providerItems(movie, region),
-      query ? searchAll(query) : Promise.resolve({ items: [], errors: [] })
-    ]).then(function (res) {
+    providerItems(movie, region).then(function (providers) {
       try { Lampa.Loading.stop(); } catch (_) {}
-      var items = res[0].map(function (i) {
+      var items = providers.map(function (i) {
         return { title: i.title, subtitle: i.subtitle, ltp_info: true, ltp_provider: i.ltp_provider, ltp_url: i.ltp_url || '' };
       });
-      if (!items.length) items.push({ title: 'Найти официальные сервисы', subtitle: 'Netflix, Prime Video и другие — через JustWatch', ltp_provider: true, ltp_url: 'https://www.justwatch.com/' + region.toLowerCase() + '/search?q=' + encodeURIComponent(query) });
-      else items.push({ title: 'Официальные сервисы: Netflix и другие', subtitle: 'Открыть полный список доступности через JustWatch', ltp_provider: true, ltp_url: 'https://www.justwatch.com/' + region.toLowerCase() + '/search?q=' + encodeURIComponent(query) });
-      items.push({ title: 'Подключить онлайн-источники', subtitle: 'VideoDB, HDRezka, Kinogo и другие балансеры', ltp_open_plugins: true });
-      res[1].items.forEach(function (r) {
-        var meta = ['Загрузка', r.source];
-        if (r.seeders) meta.push('↑' + r.seeders);
-        var size = fmtSize(r.size);
-        if (size) meta.push(size);
-        items.push({ title: r.title, subtitle: meta.join(' • '), ltp_entry: r });
-      });
-      if (res[1].errors.length) notify(res[1].errors.join('; '));
-      if (!items.length) {
-        notify('Источников не найдено.' + (jackettBase() ? '' :
-          ' Для раздач укажите Jackett (настройки парсера Lampa). Данные TMDB для региона ' + region + ' могут быть неполными.'));
-        return;
-      }
+      var justwatch = 'https://www.justwatch.com/' + region.toLowerCase() + '/search?q=' + encodeURIComponent(query);
+      items.push({ title: 'Netflix и другие официальные сервисы', subtitle: 'Проверить доступность и открыть официальный сервис через JustWatch', ltp_provider: true, ltp_url: justwatch });
+      items.push({ title: 'Подключить онлайн-источники', subtitle: 'VideoDB, Showy, HDRezka, Kinogo и другие балансеры', ltp_open_plugins: true });
+      items.push({ title: 'Найти торрент-раздачи', subtitle: 'Поиск по названию этого фильма через Jackett и Internet Archive', ltp_search_torrents: true });
       Lampa.Select.show({
         title: 'Где смотреть',
         items: items,
         onBack: function () { backTo(prev); },
         onSelect: function (a) {
           backTo(prev);
-          if (a.ltp_entry && a.ltp_entry.archiveId) return archiveChoice(a.ltp_entry, movie, prev);
-          if (a.ltp_entry) return play(a.ltp_entry, movie);
           if (a.ltp_provider) return openExternal(a.ltp_url);
           if (a.ltp_open_plugins) return showOnlinePlugins(prev);
+          if (a.ltp_search_torrents) return showTorrents(query, movie, prev, false);
         }
       });
     }).catch(function (e) {
       try { Lampa.Loading.stop(); } catch (_) {}
-      notify('Ошибка: ' + e.message);
+      notify('Не удалось загрузить варианты просмотра: ' + e.message);
     });
   }
 
