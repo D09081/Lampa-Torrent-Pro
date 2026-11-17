@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "policy": "allowlist",
+  "warning": "A source listing is not proof that every item is legally distributable. Verify item-level rights and local law.",
+  "sources": [
+    {
+      "id": "internet-archive",
+      "name": "Internet Archive",
+      "url": "https://archive.org/details/bittorrent",
+      "content_types": ["video", "audio", "books", "software"],
+      "rights_check": "required_per_item",
+      "enabled": true
+    },
+    {
+      "id": "public-domain-torrents",
+      "name": "Public Domain Torrents",
+      "url": "https://www.publicdomaintorrents.info/",
+      "content_types": ["film"],
+      "rights_check": "verify_public_domain_status",
+      "enabled": true
+    },
+    {
+      "id": "blender-open-movies",
+      "name": "Blender Open Movies",
+      "url": "https://studio.blender.org/films/",
+      "content_types": ["film", "animation"],
+      "rights_check": "verify_film_license",
+      "enabled": true
+    },
+    {
+      "id": "academic-torrents",
+      "name": "Academic Torrents",
+      "url": "https://academictorrents.com/",
+      "content_types": ["research", "datasets", "educational"],
+      "rights_check": "required_per_item",
+      "enabled": true
+    }
+  ]
+}
