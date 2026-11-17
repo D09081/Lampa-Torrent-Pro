@@ -706,7 +706,6 @@
       addParam('ltp_region', 'input', 'Регион для «Где смотреть»', 'Код страны, например RU, UA, BY, KZ. По умолчанию RU.', 'RU');
       addParam('ltp_weather_enabled', 'trigger', 'Показывать погоду', 'Температура в шапке Lampa (Open-Meteo).', true);
       addParam('ltp_weather_city', 'input', 'Город для погоды', 'По умолчанию Белгород.', 'Белгород');
-      addParam('ltp_torbox_api_key', 'input', 'Ключ TorBox API', 'Ваш личный ключ (пока не используется).', '');
     } catch (e) {
       console.error('[Lampa Torrent Pro] settings error:', e);
     }
