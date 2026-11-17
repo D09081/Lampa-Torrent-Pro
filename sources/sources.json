@@ -1,39 +1,75 @@
 {
-  "version": 1,
-  "policy": "allowlist",
-  "warning": "A source listing is not proof that every item is legally distributable. Verify item-level rights and local law.",
-  "sources": [
+  "version": "1.1.0",
+  "updated": "2026-11-18",
+  "description": "Каталог дополнительных источников Lampa. Плагины загружаются только после выбора пользователем.",
+  "online_plugins": [
     {
-      "id": "internet-archive",
-      "name": "Internet Archive",
-      "url": "https://archive.org/details/bittorrent",
-      "content_types": ["video", "audio", "books", "software"],
-      "rights_check": "required_per_item",
-      "enabled": true
+      "id": "online_mod",
+      "name": "Онлайн МОД",
+      "url": "https://nb557.github.io/plugins/online_mod.js",
+      "features": [
+        "HDRezka",
+        "Collaps",
+        "Filmix",
+        "FanCDN",
+        "Redheadsound",
+        "CDNVideoHub"
+      ],
+      "protocol": "https"
     },
     {
-      "id": "public-domain-torrents",
-      "name": "Public Domain Torrents",
-      "url": "https://www.publicdomaintorrents.info/",
-      "content_types": ["film"],
-      "rights_check": "verify_public_domain_status",
-      "enabled": true
+      "id": "showy",
+      "name": "Showy",
+      "url": "http://showy.online/m.js",
+      "features": [
+        "VideoDB",
+        "VideoCDN",
+        "HDVB",
+        "Kinotochka",
+        "Redheadsound"
+      ],
+      "notes": "May require Telegram activation; HTTP URL"
     },
     {
-      "id": "blender-open-movies",
-      "name": "Blender Open Movies",
-      "url": "https://studio.blender.org/films/",
-      "content_types": ["film", "animation"],
-      "rights_check": "verify_film_license",
-      "enabled": true
+      "id": "online_cinema",
+      "name": "Онлайн Cinema",
+      "url": "https://bylampa.github.io/cinema.js",
+      "features": [
+        "Cinema balancers"
+      ],
+      "protocol": "https"
     },
     {
-      "id": "academic-torrents",
-      "name": "Academic Torrents",
-      "url": "https://academictorrents.com/",
-      "content_types": ["research", "datasets", "educational"],
-      "rights_check": "required_per_item",
-      "enabled": true
+      "id": "hermes_movie",
+      "name": "Hermes Movie",
+      "url": "https://asimut.github.io/l/b.js",
+      "features": [
+        "Kinogo",
+        "HDRezka",
+        "Filmix",
+        "VideoCDN"
+      ],
+      "notes": "Adds a separate card search button"
+    }
+  ],
+  "official_platforms": {
+    "lookup": "TMDB Watch Providers / JustWatch",
+    "examples": [
+      "Netflix",
+      "Prime Video",
+      "Disney+",
+      "Apple TV+"
+    ]
+  },
+  "optional_backend": {
+    "name": "Lampac",
+    "endpoint": "/online.js",
+    "notes": "Self-hosted backend; do not use unknown public instances."
+  },
+  "unverified": [
+    {
+      "name": "Fovea",
+      "reason": "No confirmed active Lampa plugin URL found."
     }
   ]
 }
