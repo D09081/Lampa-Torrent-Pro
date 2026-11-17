@@ -2,7 +2,7 @@
 
 1. Откройте Lampa → Настройки → Расширения → Добавить плагин.
 2. Вставьте адрес:
-   `https://raw.githubusercontent.com/D09081/Lampa-Torrent-Pro/main/plugin/lampa-torrent-pro.js`
+   `https://d09081.github.io/Lampa-Torrent-Pro/plugin.js`
 3. Подтвердите установку стороннего плагина и перезапустите Lampa.
 4. Найдите раздел «Lampa Torrent Pro» в настройках.
 
