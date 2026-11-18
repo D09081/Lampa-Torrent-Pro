@@ -1,4 +1,4 @@
-# Установка Lampa Torrent Pro 1.1.0
+# Установка Lampa Torrent Pro 1.3.0
 
 Актуальная инструкция: [INSTALL.md](../INSTALL.md).
 
