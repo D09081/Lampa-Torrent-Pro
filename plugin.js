@@ -908,7 +908,7 @@
       'body.lcos-native .menu__split{border-color:var(--lcos-line)}',
       '@media(max-width:767px){body.lcos-native .card{width:10.4em}body.lcos-native .menu__item{padding:.72em .85em}}',
       '@media(prefers-reduced-motion:reduce){body.lcos-native *,body.lcos-native *:before,body.lcos-native *:after{transition:none!important;animation:none!important}}'
-    ].join('\\n');
+    ].join('\n');
     var style = document.createElement('style');
     style.id = 'lcos-native-skin';
     style.textContent = css;
