@@ -5,7 +5,7 @@
   'use strict';
 
   var ID = 'lampa_torrent_pro';
-  var VERSION = '1.6.2';
+  var VERSION = '1.7.0';
   var TITLE = 'Cinema OS';
 
   if (window.__ltp_loaded) return;
@@ -809,6 +809,155 @@
     });
   }
 
+  /* ---------- Cinema OS: собственная главная ---------- */
+  function cinemaHomeOpen() {
+    Lampa.Activity.push({
+      url: '',
+      title: 'Cinema OS',
+      component: 'ltp_cinema_home',
+      page: 1
+    });
+  }
+
+  function cinemaHomeAction(title, subtitle, handler) {
+    var tile = $('<div class="lcos-home__action selector"><div class="lcos-home__action-title"></div><div class="lcos-home__action-sub"></div></div>');
+    tile.find('.lcos-home__action-title').text(title);
+    tile.find('.lcos-home__action-sub').text(subtitle);
+    tile.on('hover:enter', handler);
+    return tile;
+  }
+
+  function cinemaHomeCard(data) {
+    var card = $('<div class="card selector lcos-home__card"><div class="card__view"><img class="card__img" /></div><div class="card__title"></div><div class="card__age"></div></div>');
+    var title = data.title || data.name || data.original_title || data.original_name || 'Без названия';
+    var year = String(data.release_date || data.first_air_date || '').slice(0, 4);
+    card.find('.card__title').text(title);
+    card.find('.card__age').text(year);
+    if (data.poster_path) card.find('.card__img').attr('src', 'https://image.tmdb.org/t/p/w342' + data.poster_path);
+    else card.find('.card__img').attr('src', './img/img_load.svg');
+    card.addClass(data.name && !data.title ? 'card--tv' : 'card--movie');
+    card.on('hover:enter', function () {
+      data.source = 'tmdb';
+      if (Lampa.Router && Lampa.Router.call) Lampa.Router.call('full', data);
+      else Lampa.Activity.push({ url: '', title: title, component: 'full', id: data.id, method: data.name && !data.title ? 'tv' : 'movie', source: 'tmdb', card: data, page: 1 });
+    });
+    return card;
+  }
+
+  function CinemaHomeComponent(object) {
+    var scroll = new Lampa.Scroll({ mask: true, over: true });
+    var alive = true;
+    var root = $('<div class="lcos-home"></div>');
+    var content = $('<div class="lcos-home__content"></div>');
+    root.append(content);
+    var self = this;
+
+    function addShelf(title, subtitle, cards) {
+      if (!alive || !cards || !cards.length) return;
+      var shelf = $('<section class="lcos-home__shelf"><div class="lcos-home__shelf-head"><div class="lcos-home__shelf-title"></div><div class="lcos-home__shelf-sub"></div></div><div class="lcos-home__cards"></div></section>');
+      shelf.find('.lcos-home__shelf-title').text(title);
+      shelf.find('.lcos-home__shelf-sub').text(subtitle || '');
+      cards.slice(0, 12).forEach(function (item) {
+        shelf.find('.lcos-home__cards').append(cinemaHomeCard(item));
+      });
+      content.append(shelf);
+    }
+
+    this.create = function () {
+      var hero = $('<div class="lcos-home__hero"><div class="lcos-home__eyebrow">YOUR PERSONAL CINEMA</div><div class="lcos-home__title">Кино начинается здесь</div><div class="lcos-home__desc">Фильмы, сериалы и удобный доступ к источникам — в одном месте</div><div class="lcos-home__actions"></div></div>');
+      hero.find('.lcos-home__actions')
+        .append(cinemaHomeAction('Продолжить просмотр', 'История и прогресс', function () {
+          Lampa.Activity.push({ url: '', title: 'Продолжить просмотр', component: 'watch_history', page: 1 });
+        }))
+        .append(cinemaHomeAction('Моя коллекция', 'Избранное и закладки', function () {
+          if (Lampa.Router && Lampa.Router.call) Lampa.Router.call('favorite', { type: 'book', title: 'Моя коллекция' });
+          else Lampa.Activity.push({ url: '', title: 'Моя коллекция', component: 'favorite', type: 'book', page: 1 });
+        }))
+        .append(cinemaHomeAction('Все источники', 'Онлайн, торренты и сервисы', showSources))
+        .append(cinemaHomeAction('Погода', weatherCity() + ' · прогноз', showWeather));
+      content.append(hero);
+
+      var nav = $('<div class="lcos-home__nav"></div>');
+      nav.append(cinemaHomeAction('Фильмы', 'Каталог кино', function () { openCatalog('movie/popular', 'Популярные фильмы'); }));
+      nav.append(cinemaHomeAction('Сериалы', 'Каталог сериалов', function () { openCatalog('tv/popular', 'Популярные сериалы'); }));
+      nav.append(cinemaHomeAction('Новинки', 'Свежие релизы', function () { openCatalog('movie/now_playing', 'Новинки кино'); }));
+      nav.append(cinemaHomeAction('В тренде', 'Популярное сейчас', function () { openCatalog('trending/all/week', 'Сейчас популярно'); }));
+      content.append(nav);
+
+      this.activity.loader(true);
+      var url = Lampa.TMDB && Lampa.TMDB.api ? Lampa.TMDB.api('trending/all/week') : '';
+      if (!url) {
+        this.activity.loader(false);
+        return this.render();
+      }
+      getJSON(url).then(function (data) {
+        if (!alive) return;
+        var results = (data && data.results) || [];
+        addShelf('Сейчас популярно', 'Подборка недели', results);
+        addShelf('Фильмы', 'Популярное кино', results.filter(function (item) { return item.title || item.original_title; }));
+        addShelf('Сериалы', 'Популярные сериалы', results.filter(function (item) { return item.name || item.original_name; }));
+        self.activity.loader(false);
+        self.activity.toggle();
+      }).catch(function () {
+        if (!alive) return;
+        self.activity.loader(false);
+        self.activity.toggle();
+        notify('Не удалось загрузить подборку. Проверьте подключение к TMDB.');
+      });
+      return this.render();
+    };
+
+    this.start = function () {};
+    this.stop = function () {};
+    this.render = function () { return scroll.render(); };
+    this.destroy = function () {
+      alive = false;
+      scroll.destroy();
+      root.remove();
+      content.remove();
+    };
+  }
+
+  function registerCinemaHome() {
+    if (Lampa.Component && Lampa.Component.add && !Lampa.Component.get('ltp_cinema_home')) {
+      Lampa.Component.add('ltp_cinema_home', CinemaHomeComponent);
+    }
+  }
+
+  function addCinemaHomeStyle() {
+    if (document.getElementById('lcos-home-style')) return;
+    var style = document.createElement('style');
+    style.id = 'lcos-home-style';
+    style.textContent = [
+      '.lcos-home{width:100%;min-height:100%;color:#f7f2ff}',
+      '.lcos-home__content{padding:1.2em 2.2em 3em;box-sizing:border-box}',
+      '.lcos-home__hero{padding:2em 2.2em 1.8em;border:1px solid rgba(190,151,255,.2);border-radius:1.1em;background:linear-gradient(110deg,rgba(65,38,100,.72),rgba(20,15,31,.96) 68%);margin-bottom:1.3em}',
+      '.lcos-home__eyebrow{font-size:.72em;letter-spacing:.18em;color:#c4a4ff;font-weight:700}',
+      '.lcos-home__title{font-size:2.15em;font-weight:800;margin:.35em 0;color:#fff}',
+      '.lcos-home__desc{font-size:.95em;color:#bdb2ce;margin-bottom:1.25em}',
+      '.lcos-home__actions,.lcos-home__nav{display:flex;flex-wrap:wrap;gap:.65em}',
+      '.lcos-home__action{display:flex;flex-direction:column;justify-content:center;min-width:10.5em;min-height:4.1em;padding:.7em 1em;border:1px solid rgba(190,151,255,.2);border-radius:.65em;background:rgba(255,255,255,.045);box-sizing:border-box}',
+      '.lcos-home__action.focus,.lcos-home__action.hover{background:rgba(124,58,237,.32);border-color:#bd93ff;outline:2px solid rgba(189,147,255,.65)}',
+      '.lcos-home__action-title{font-weight:700;color:#fff;font-size:.94em}',
+      '.lcos-home__action-sub{font-size:.72em;color:#b7abc9;margin-top:.28em}',
+      '.lcos-home__nav{margin:1em 0 1.5em}',
+      '.lcos-home__nav .lcos-home__action{min-width:8em;min-height:3.4em;background:rgba(30,23,43,.88)}',
+      '.lcos-home__shelf{margin:1.6em 0 1.1em}',
+      '.lcos-home__shelf-head{margin-bottom:.65em}',
+      '.lcos-home__shelf-title{font-size:1.25em;font-weight:800;color:#fff}',
+      '.lcos-home__shelf-sub{font-size:.72em;color:#a99db9;margin-top:.2em}',
+      '.lcos-home__cards{display:flex;flex-wrap:nowrap;gap:.8em;overflow:visible}',
+      '.lcos-home__card{width:8.2em;min-width:8.2em;flex:0 0 8.2em}',
+      '.lcos-home__card .card__view{border-radius:.55em;overflow:hidden}',
+      '.lcos-home__card .card__img{width:100%;height:auto;aspect-ratio:2/3;object-fit:cover}',
+      '.lcos-home__card.focus .card__view,.lcos-home__card.hover .card__view{outline:2px solid #bd93ff;box-shadow:0 0 0 3px rgba(124,58,237,.18)}',
+      '@media(max-width:900px){.lcos-home__content{padding:1em}.lcos-home__title{font-size:1.5em}.lcos-home__action{min-width:8.5em}}',
+      'body.lcos-performance .lcos-home__hero{background:#171122}',
+      'body.lcos-performance .lcos-home__action.focus,body.lcos-performance .lcos-home__card.focus .card__view{box-shadow:none!important}'
+    ].join('');
+    document.head.appendChild(style);
+  }
+
   /* ---------- меню, шапка, настройки ---------- */
 
   function addStyle() {
@@ -841,7 +990,7 @@
         '<div class="menu__text">' + TITLE + '</div>' +
       '</li>'
     );
-    item.on('hover:enter', hub);
+    item.on('hover:enter', cinemaHomeOpen);
     $('.menu .menu__list').eq(0).append(item);
   }
 
@@ -864,7 +1013,7 @@
       if (!head.find('.ltp-head-btn').length) {
         var btn = $('<div class="head__action selector ltp-head-btn">' +
           SEARCH_ICON.replace('width="24" height="24"', 'width="22" height="22"') + '</div>');
-        btn.on('hover:enter click', hub);
+        btn.on('hover:enter click', cinemaHomeOpen);
         head.prepend(btn);
       }
       if (weatherOn() && !head.find('.ltp-weather').length) {
@@ -1010,6 +1159,8 @@
     if (window.__ltp_started) return;
     window.__ltp_started = true;
     initNativeSkinLifecycle();
+    addCinemaHomeStyle();
+    registerCinemaHome();
     addStyle();
     addMenu();
     addWeatherMenu();
