@@ -5,7 +5,7 @@
   'use strict';
 
   var ID = 'lampa_torrent_pro';
-  var VERSION = '1.8.2';
+  var VERSION = '1.8.3';
   var TITLE = 'Cinema OS';
 
   if (window.__ltp_loaded) return;
@@ -831,6 +831,12 @@
     tile.find('.lcos-home__action-title').text(title);
     tile.find('.lcos-home__action-sub').text(subtitle);
     tile.on('hover:enter', handler);
+    tile.on('hover:focus focusin', function () {
+      var node = tile[0];
+      if (!node || !node.scrollIntoView) return;
+      try { node.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+      catch (_) { try { node.scrollIntoView(false); } catch (e) {} }
+    });
     return tile;
   }
 
@@ -840,8 +846,15 @@
     var year = String(data.release_date || data.first_air_date || '').slice(0, 4);
     card.find('.card__title').text(title);
     card.find('.card__age').text(year);
-    if (data.poster_path) card.find('.card__img').attr('src', 'https://image.tmdb.org/t/p/w342' + data.poster_path);
-    else card.find('.card__img').attr('src', './img/img_load.svg');
+    var poster = card.find('.card__img');
+    poster.attr({ loading: 'lazy', decoding: 'async' });
+    if (data.poster_path) poster.attr('src', 'https://image.tmdb.org/t/p/w342' + data.poster_path);
+    else poster.attr('src', './img/img_load.svg');
+    poster.on('error', function () {
+      if (this.getAttribute('data-ltp-fallback')) return;
+      this.setAttribute('data-ltp-fallback', '1');
+      this.src = './img/img_load.svg';
+    });
     card.addClass(data.name && !data.title ? 'card--tv' : 'card--movie');
     function keepCardVisible() {
       var node = card[0];
