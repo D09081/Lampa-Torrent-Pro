@@ -969,7 +969,7 @@
       'body.lcos-performance .card__view{filter:none!important}',
       'body.lcos-performance .full-start__background{filter:none!important}',
       'body.lcos-performance *{scroll-behavior:auto!important}'
-    ].join('\\n');
+    ].join('');
     document.head.appendChild(style);
   }
 
