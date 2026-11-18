@@ -5,7 +5,7 @@
   'use strict';
 
   var ID = 'lampa_torrent_pro';
-  var VERSION = '1.9.0';
+  var VERSION = '1.9.1';
   var TITLE = 'Cinema OS';
 
   if (window.__ltp_loaded) return;
@@ -93,10 +93,27 @@
   function jackettBase() { return normalizeBase(str('ltp_parser_url') || str('jackett_url')); }
 
   function currentController() {
-    try { return Lampa.Controller.enabled().name || 'content'; } catch (_) { return 'content'; }
+    try {
+      var active = Lampa.Controller.enabled();
+      var name = active && active.name;
+      return name && name !== 'select' && name !== 'modal' ? name : 'content';
+    } catch (_) { return 'content'; }
   }
   function backTo(name) {
-    try { Lampa.Controller.toggle(name); } catch (_) {}
+    var target = name && name !== 'select' && name !== 'modal' ? name : 'content';
+    try { Lampa.Controller.toggle(target); }
+    catch (_) {
+      if (target !== 'content') {
+        try { Lampa.Controller.toggle('content'); } catch (e) {}
+      }
+    }
+  }
+  // Экран «Где смотреть» открывается поверх карточки фильма. На webOS
+  // возврат всегда должен активировать контроллер карточки, а не select.
+  function backToMovie(prev) {
+    var target = prev && prev !== 'select' && prev !== 'modal' ? prev : 'content';
+    try { Lampa.Controller.toggle(target); }
+    catch (_) { try { Lampa.Controller.toggle('content'); } catch (e) {} }
   }
 
   /* ---------- источники раздач ---------- */
@@ -351,8 +368,11 @@
 
   // «Где смотреть»: легальные сервисы (TMDB) + источники для загрузки (Internet Archive, ваш Jackett)
   function showWhere(movie, prev) {
+    movie = movie || {};
+    // Не сохраняем имя контроллера самого диалога: Back должен вернуть карточку.
+    prev = prev && prev !== 'select' && prev !== 'modal' ? prev : 'content';
     var region = (str('ltp_region') || 'RU').toUpperCase();
-    var query = buildQuery(movie || {}).trim();
+    var query = buildQuery(movie).trim();
     try { Lampa.Loading.start(); } catch (_) {}
     providerItems(movie, region).then(function (result) {
       try { Lampa.Loading.stop(); } catch (_) {}
@@ -369,14 +389,42 @@
       } else {
         items.push({ title: 'Список сервисов не получен', subtitle: 'TMDB не вернул данные для региона ' + region + '. Проверьте регион или откройте JustWatch.' });
       }
-      items.push({ title: 'Онлайн-источники Lampa', subtitle: 'Подключить совместимые плагины: Online МОД, Showy, Cinema, Hermes', ltp_open_plugins: true });
+      // Быстрые кнопки конкретных онлайн-балансеров прямо в «Где смотреть».
+      var pluginById = {};
+      ONLINE_PLUGINS.forEach(function (plugin) { pluginById[plugin.id] = plugin; });
+      if (pluginById.showy) items.push({
+        title: 'VideoDB / VideoCDN / HDVB · Showy',
+        subtitle: 'Подключить VideoDB и другие источники Showy',
+        ltp_plugin: pluginById.showy
+      });
+      if (pluginById.hermes_movie) items.push({
+        title: 'Kinogo / HDRezka / Filmix · Hermes',
+        subtitle: 'Подключить отдельный поиск источников на карточке',
+        ltp_plugin: pluginById.hermes_movie
+      });
+      if (pluginById.online_mod) items.push({
+        title: 'Онлайн МОД',
+        subtitle: 'HDRezka, Collaps, Filmix и другие балансеры',
+        ltp_plugin: pluginById.online_mod
+      });
+      if (pluginById.online_cinema) items.push({
+        title: 'Онлайн Cinema',
+        subtitle: 'Дополнительные онлайн-источники Lampa',
+        ltp_plugin: pluginById.online_cinema
+      });
+      items.push({ title: 'Все онлайн-источники', subtitle: 'Showy, Hermes, Cinema, Онлайн МОД и другие подключения', ltp_open_plugins: true });
       items.push({ title: 'Поиск открытых раздач', subtitle: 'Internet Archive и ваш Jackett; для magnet обычно нужен TorrServer', ltp_search_torrents: true });
       Lampa.Select.show({
         title: 'Где смотреть · ' + (movie.title || movie.name || query),
         items: items,
-        onBack: function () { backTo(prev); },
+        onBack: function () { backToMovie(prev); },
         onSelect: function (a) {
-          backTo(prev);
+          if (a.ltp_plugin) {
+            backToMovie(prev);
+            activateOnlinePlugin(a.ltp_plugin);
+            return;
+          }
+          backToMovie(prev);
           if (a.ltp_provider) return openExternal(a.ltp_url);
           if (a.ltp_open_plugins) return showOnlinePlugins(prev);
           if (a.ltp_search_torrents) return showTorrents(query, movie, prev);
@@ -386,6 +434,7 @@
     }).catch(function (e) {
       try { Lampa.Loading.stop(); } catch (_) {}
       notify('Не удалось загрузить варианты просмотра: ' + e.message);
+      backToMovie(prev);
     });
   }
 
@@ -672,6 +721,16 @@
       try { Lampa.Utils.putScriptAsync([lampac + '/online.js'], function () { notify('Lampac Online подключён.'); }); }
       catch (e) { window.__ltp_lampac_loaded = false; notify('Lampac: ' + e.message); }
     }
+  }
+
+  function activateOnlinePlugin(plugin) {
+    if (!plugin) return;
+    var ids = selectedOnlinePlugins();
+    if (ids.indexOf(plugin.id) < 0) {
+      ids.push(plugin.id);
+      try { Lampa.Storage.set('ltp_online_plugins', ids); } catch (_) {}
+    }
+    loadOnlinePlugin(plugin);
   }
 
   function showOnlinePlugins(prev) {
