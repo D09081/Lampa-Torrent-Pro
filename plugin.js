@@ -1,11 +1,12 @@
-/* Lampa Torrent Pro 1.3.0 — понятный киноцентр для Lampa.
- * Каталог и поиск остаются штатными средствами Lampa. На карточке показываются официальные
- * варианты просмотра, торрент-источники и подключаемые онлайн-балансеры. Погода — Белгород. */
+/* Lampa Torrent Pro 2.0.0 — онлайн-кинотеатр на базе Lampa.
+ * Каталог и поиск — штатные средства Lampa. Кнопка «Смотреть» на карточке собирает в один список
+ * лучший вариант просмотра (онлайн Internet Archive, ваши раздачи через Jackett/TorrServer),
+ * официальные сервисы и подключаемые онлайн-плагины. Погода — Белгород. */
 (function () {
   'use strict';
 
   var ID = 'lampa_torrent_pro';
-  var VERSION = '1.9.0';
+  var VERSION = '2.0.0';
   var TITLE = 'Cinema OS';
 
   if (window.__ltp_loaded) return;
@@ -266,9 +267,9 @@
         if (r.seeders) meta.push('↑' + r.seeders);
         var size = fmtSize(r.size);
         if (size) meta.push(size);
-        var quality = /\\b(2160p|4k|uhd)\\b/i.test(r.title) ? '4K' :
-          /\\b(1080p|1080i|full.?hd)\\b/i.test(r.title) ? '1080p' :
-          /\\b(720p|hd)\\b/i.test(r.title) ? '720p' : '';
+        var quality = /\b(2160p|4k|uhd)\b/i.test(r.title) ? '4K' :
+          /\b(1080p|1080i|full.?hd)\b/i.test(r.title) ? '1080p' :
+          /\b(720p|hd)\b/i.test(r.title) ? '720p' : '';
         if (quality) meta.push(quality);
         items.push({ title: r.title, subtitle: meta.join(' • '), ltp_entry: r });
       });
@@ -349,38 +350,113 @@
     return (original && /^[\x00-\x7F]+$/.test(original) ? original : name) + (year && movie.title ? ' ' + year : '');
   }
 
-  // «Где смотреть»: легальные сервисы (TMDB) + источники для загрузки (Internet Archive, ваш Jackett)
+  function normTitle(t) {
+    return String(t || '').toLowerCase().replace(/ё/g, 'е').replace(/[^a-z0-9а-я]+/g, ' ').trim();
+  }
+
+  function qualityOf(title) {
+    title = String(title || '');
+    return /\b(2160p|4k|uhd)\b/i.test(title) ? '4K' :
+      /\b(1080p|1080i|full.?hd)\b/i.test(title) ? '1080p' :
+      /\b(720p|hd)\b/i.test(title) ? '720p' :
+      /\b(480p|sd)\b/i.test(title) ? '480p' : '';
+  }
+
+  function entryMeta(r) {
+    var meta = [r.archiveId ? 'Онлайн' : 'Раздача', r.source];
+    var q = qualityOf(r.title);
+    if (q) meta.push(q);
+    if (/\b(rus|russian)\b|рус|дубляж|многоголос/i.test(r.title)) meta.push('рус');
+    if (r.seeders) meta.push('↑' + r.seeders);
+    var size = fmtSize(r.size);
+    if (size) meta.push(size);
+    return meta.join(' • ');
+  }
+
+  // Internet Archive ищет по подстроке: оставляем только совпадения по названию и году,
+  // иначе случайная загрузка встанет «лучшим вариантом» для современного фильма.
+  function archiveMatches(entry, movie) {
+    var names = [movie.title, movie.name, movie.original_title, movie.original_name]
+      .filter(Boolean).map(normTitle).filter(function (n) { return n.length > 1; });
+    var m = /\((\d{4})\)\s*$/.exec(entry.title || '');
+    var year = String(movie.release_date || movie.first_air_date || '').slice(0, 4);
+    if (year && m && Math.abs(Number(year) - Number(m[1])) > 1) return false;
+    var t = normTitle(String(entry.title || '').replace(/\(\d{4}\)\s*$/, ''));
+    return names.some(function (n) { return t === n || (n.length >= 6 && t.indexOf(n + ' ') === 0); });
+  }
+
+  function rankEntries(list, movie) {
+    var out = list.filter(function (r) { return !r.archiveId || archiveMatches(r, movie); });
+    out.forEach(function (r) { r._score = sourcePreferenceScore(r) + (r.archiveId ? 600 : 0); });
+    out.sort(function (a, b) { return b._score - a._score; });
+    return out;
+  }
+
+  // «Смотреть»: один список — лучший вариант, другие варианты, официальные сервисы, онлайн-плагины.
   function showWhere(movie, prev) {
+    movie = movie || {};
     var region = (str('ltp_region') || 'RU').toUpperCase();
-    var query = buildQuery(movie || {}).trim();
+    var query = buildQuery(movie).trim();
+    var shownName = movie.title || movie.name || query;
     try { Lampa.Loading.start(); } catch (_) {}
-    providerItems(movie, region).then(function (result) {
+    Promise.all([
+      providerItems(movie, region),
+      query ? searchAll(query) : Promise.resolve({ items: [], errors: [] })
+    ]).then(function (res) {
       try { Lampa.Loading.stop(); } catch (_) {}
-      var justwatch = 'https://www.justwatch.com/' + region.toLowerCase() + '/search?q=' + encodeURIComponent(query);
-      var items = [{
-        title: 'Открыть варианты просмотра для этого фильма',
-        subtitle: 'JustWatch · официальные сервисы, аренда и покупка · регион ' + region,
-        ltp_provider: true,
-        ltp_url: result.link || justwatch
-      }];
-      if (result.items.length) {
-        items.push({ title: 'Доступность по данным TMDB', subtitle: 'Ниже перечислены найденные сервисы. Нажмите первую строку, чтобы открыть варианты на JustWatch.' });
-        result.items.forEach(function (i) { items.push(i); });
+      var providers = res[0], found = res[1];
+      var entries = rankEntries(found.items, movie);
+      var items = [];
+      if (entries.length) {
+        var best = entries[0];
+        items.push({
+          title: (best.archiveId ? '▶  Смотреть онлайн' : '▶  Смотреть') + ' · ' + best.title,
+          subtitle: 'Рекомендуем · ' + entryMeta(best),
+          ltp_entry: best, ltp_direct: true
+        });
+        entries.slice(1, 9).forEach(function (r) {
+          items.push({ title: r.title, subtitle: entryMeta(r), ltp_entry: r });
+        });
+        if (entries.length > 9) {
+          items.push({ title: 'Все раздачи (' + entries.length + ')', subtitle: 'Полный список по качеству и озвучке', ltp_all: true });
+        }
       } else {
-        items.push({ title: 'Список сервисов не получен', subtitle: 'TMDB не вернул данные для региона ' + region + '. Проверьте регион или откройте JustWatch.' });
+        items.push({
+          title: 'Раздач не найдено',
+          subtitle: jackettBase() ? 'Попробуйте официальные сервисы или онлайн-плагины ниже.' :
+            'Для свежих фильмов и сериалов подключите Jackett (строка ниже).',
+          ltp_none: true
+        });
       }
-      items.push({ title: 'Онлайн-источники Lampa', subtitle: 'Подключить совместимые плагины: Online МОД, Showy, Cinema, Hermes', ltp_open_plugins: true });
-      items.push({ title: 'Поиск открытых раздач', subtitle: 'Internet Archive и ваш Jackett; для magnet обычно нужен TorrServer', ltp_search_torrents: true });
+      var names = [];
+      providers.items.forEach(function (p) { if (names.indexOf(p.title) < 0) names.push(p.title); });
+      var justwatch = 'https://www.justwatch.com/' + region.toLowerCase() + '/search?q=' + encodeURIComponent(query);
+      items.push({
+        title: 'Официальные сервисы',
+        subtitle: (names.length ? names.slice(0, 6).join(', ') + ' · ' : '') + 'регион ' + region + ' · откроется JustWatch',
+        ltp_provider: true, ltp_url: providers.link || justwatch
+      });
+      items.push({ title: 'Онлайн-плагины Lampa', subtitle: 'Ваши подключённые источники — их кнопка появляется на карточке', ltp_open_plugins: true });
+      if (!jackettBase()) {
+        items.push({ title: 'Подключить Jackett', subtitle: 'Адрес и ключ вашего сервера — для поиска раздач', ltp_settings: true });
+      }
+      if (found.errors.length) notify(found.errors.join('; '));
+
       Lampa.Select.show({
-        title: 'Где смотреть · ' + (movie.title || movie.name || query),
+        title: 'Смотреть · ' + shownName,
         items: items,
         onBack: function () { backTo(prev); },
         onSelect: function (a) {
           backTo(prev);
+          if (a.ltp_entry) {
+            if (a.ltp_entry.archiveId) return a.ltp_direct ? watchArchive(a.ltp_entry, prev) : archiveChoice(a.ltp_entry, movie, prev);
+            return play(a.ltp_entry, movie);
+          }
+          if (a.ltp_all) return showTorrents(query, movie, prev);
           if (a.ltp_provider) return openExternal(a.ltp_url);
           if (a.ltp_open_plugins) return showOnlinePlugins(prev);
-          if (a.ltp_search_torrents) return showTorrents(query, movie, prev);
-          if (a.ltp_provider_info) return notify(a.title + ': доступность указана агрегатором TMDB; переход к сервису доступен через JustWatch.');
+          if (a.ltp_settings) return openPluginSettings(prev);
+          if (a.ltp_none) return;
         }
       });
     }).catch(function (e) {
@@ -676,12 +752,12 @@
 
   function showOnlinePlugins(prev) {
     prev = prev || currentController();
-    // Загружаем выбранные источники только по запросу пользователя, а не при запуске Lampa.
+    // Подключаем выбранные плагины (повторно не грузятся: стоит защита от дубликатов).
     loadSelectedOnlinePlugins();
     var selected = selectedOnlinePlugins();
     var items = ONLINE_PLUGINS.map(function (p) {
       var enabled = selected.indexOf(p.id) >= 0;
-      var state = enabled ? 'Включён · подключится при открытии этого раздела' : 'Не подключён';
+      var state = enabled ? 'Включён · подключается при запуске Lampa' : 'Не подключён';
       return { title: (enabled ? '✓  ' : '+  ') + p.title, subtitle: state + ' · ' + p.desc, ltp_plugin: p };
     });
     items.push({ title:'Официальные кинотеатры', subtitle:'Netflix, Prime Video, Disney+ и другие — искать доступность через JustWatch', ltp_url:'https://www.justwatch.com/' });
@@ -698,7 +774,25 @@
             notify('Онлайн МОД — обязательный источник и всегда включён.');
             return showOnlinePlugins(prev);
           }
-          if (at >= 0) ids.splice(at,1); else ids.push(a.ltp_plugin.id);
+          if (at >= 0) ids.splice(at,1); else if (!/^http:\/\//i.test(a.ltp_plugin.url)) ids.push(a.ltp_plugin.id);
+          if (at < 0 && /^http:\/\//i.test(a.ltp_plugin.url)) {
+            // Скрипт по HTTP может быть подменён по дороге, а плагин работает в Lampa с полными правами.
+            Lampa.Select.show({
+              title: a.ltp_plugin.title + ': небезопасный адрес (HTTP)',
+              items: [
+                { title: 'Не подключать', ltp_cancel: true },
+                { title: 'Подключить всё равно', subtitle: 'Только если доверяете сети и источнику', ltp_ok: true }
+              ],
+              onBack: function () { showOnlinePlugins(prev); },
+              onSelect: function (c) {
+                if (!c.ltp_ok) return showOnlinePlugins(prev);
+                try { Lampa.Storage.set('ltp_online_plugins', ids.concat([a.ltp_plugin.id])); } catch (_) {}
+                loadOnlinePlugin(a.ltp_plugin);
+                showOnlinePlugins(prev);
+              }
+            });
+            return;
+          }
           try { Lampa.Storage.set('ltp_online_plugins', ids); } catch (_) {}
           if (at < 0) loadOnlinePlugin(a.ltp_plugin);
           else notify(a.ltp_plugin.title + ' отключён при следующем запуске.');
@@ -809,7 +903,7 @@
         var render = e.object.activity.render();
         if (render.find('.ltp-full-btn').length) return;
 
-        var btn = $('<div class="full-start__button selector ltp-full-btn">' + MAGNET_ICON + '<span>Где смотреть</span></div>');
+        var btn = $('<div class="full-start__button selector ltp-full-btn">' + MAGNET_ICON + '<span>Смотреть</span></div>');
         btn.on('hover:enter', function () { showWhere(movie, currentController()); });
 
         var anchor = render.find('.view--torrent').first();
@@ -994,15 +1088,15 @@
     var quality = str('ltp_quality_preference').toLowerCase();
     var audio = str('ltp_audio_preference').toLowerCase();
     var score = 0;
-    var q4 = /\\b(2160p|4k|uhd)\\b/i.test(title);
-    var q1080 = /\\b(1080p|1080i|full.?hd)\\b/i.test(title);
-    var q720 = /\\b(720p|hd)\\b/i.test(title);
-    var q480 = /\\b(480p|sd)\\b/i.test(title);
+    var q4 = /\b(2160p|4k|uhd)\b/i.test(title);
+    var q1080 = /\b(1080p|1080i|full.?hd)\b/i.test(title);
+    var q720 = /\b(720p|hd)\b/i.test(title);
+    var q480 = /\b(480p|sd)\b/i.test(title);
     if (quality.indexOf('4k') >= 0 || quality.indexOf('2160') >= 0) score += q4 ? 500 : q1080 ? 250 : q720 ? 100 : 0;
     else if (quality.indexOf('720') >= 0) score += q720 ? 500 : q1080 ? 350 : q4 ? 250 : 0;
     else score += q1080 ? 500 : q4 ? 400 : q720 ? 250 : q480 ? 100 : 0;
-    if (audio && (title.indexOf(audio) >= 0 || (audio.indexOf('рус') >= 0 && /\\b(rus|russian)\\b|рус|дубляж|многоголос/i.test(title)))) score += 350;
-    else if (/\\b(rus|russian)\\b|рус|дубляж|многоголос/i.test(title)) score += 80;
+    if (audio && (title.indexOf(audio) >= 0 || (audio.indexOf('рус') >= 0 && /\b(rus|russian)\b|рус|дубляж|многоголос/i.test(title)))) score += 350;
+    else if (/\b(rus|russian)\b|рус|дубляж|многоголос/i.test(title)) score += 80;
     score += Math.min(150, Math.max(0, Number(entry.seeders) || 0) * 2);
     return score;
   }
@@ -1011,15 +1105,23 @@
     var alive = true;
     var root = $('<div class="lcos-home"></div>');
     var content = $('<div class="lcos-home__content"></div>');
+    var feed = $('<div class="lcos-home__feed"></div>');
     root.append(content);
     var self = this;
+    var last = null;
+    try { if (scroll.minus) scroll.minus(); } catch (_) {}
+    scroll.append(root);
+    root.on('hover:focus', '.selector', function () {
+      last = this;
+      try { scroll.update($(this), true); } catch (_) {}
+    });
     function addShelf(title, subtitle, cards) {
       if (!alive || !cards || !cards.length) return;
       var shelf = $('<section class="lcos-home__shelf"><div class="lcos-home__shelf-head"><div class="lcos-home__shelf-title"></div><div class="lcos-home__shelf-sub"></div></div><div class="lcos-home__cards"></div></section>');
       shelf.find('.lcos-home__shelf-title').text(title);
       shelf.find('.lcos-home__shelf-sub').text(subtitle || '');
-      cards.slice(0, 7).forEach(function (item) { shelf.find('.lcos-home__cards').append(cinemaHomeCard(item)); });
-      content.append(shelf);
+      cards.slice(0, 10).forEach(function (item) { shelf.find('.lcos-home__cards').append(cinemaHomeCard(item)); });
+      feed.append(shelf);
     }
     function actionGrid(title, items, className) {
       var section = $('<section class="lcos-home__section"><div class="lcos-home__section-title"></div><div class="lcos-home__grid"></div></section>');
@@ -1044,6 +1146,8 @@
       nav.append(cinemaHomeAction('Избранное', 'Коллекция Lampa', cinemaOpenCollection));
       nav.append(cinemaHomeAction('История', 'Продолжить просмотр', cinemaOpenHistory));
       content.append(nav);
+      feed.append($('<div class="lcos-home__section-title lcos-home__section-title--feed">ВАШ ВЕЧЕР В КИНО</div>'));
+      content.append(feed);
       actionGrid('БЫСТРЫЙ ДОСТУП', [
         ['Новинки кино', 'Свежие релизы', function () { openCatalog('movie/now_playing', 'Новинки кино'); }],
         ['Сериалы сейчас', 'Актуальные сериалы', function () { openCatalog('tv/on_the_air', 'Актуальные сериалы'); }],
@@ -1056,7 +1160,6 @@
         ['Настройки', 'Настроить Cinema OS', function () { openPluginSettings(currentController()); }],
         ['Инструменты LTP', 'Дополнительные функции', hub]
       ], 'lcos-home__quick');
-      content.append($('<div class="lcos-home__section-title lcos-home__section-title--feed">ВАШ ВЕЧЕР В КИНО</div>'));
       this.activity.loader(true);
       var url = Lampa.TMDB && Lampa.TMDB.api ? Lampa.TMDB.api('trending/all/week') : '';
       if (!url) {
@@ -1084,7 +1187,30 @@
       });
       return this.render();
     };
-    this.start = function () {};
+    this.start = function () {
+      try {
+        if (Lampa.Activity.active && Lampa.Activity.active().activity !== self.activity) return;
+      } catch (_) {}
+      Lampa.Controller.add('ltp_cinema_home', {
+        toggle: function () {
+          Lampa.Controller.collectionSet(scroll.render());
+          Lampa.Controller.collectionFocus(last || false, scroll.render());
+        },
+        left: function () {
+          if (Navigator.canmove('left')) Navigator.move('left');
+          else Lampa.Controller.toggle('menu');
+        },
+        right: function () { if (Navigator.canmove('right')) Navigator.move('right'); },
+        up: function () {
+          if (Navigator.canmove('up')) Navigator.move('up');
+          else Lampa.Controller.toggle('head');
+        },
+        down: function () { if (Navigator.canmove('down')) Navigator.move('down'); },
+        back: function () { Lampa.Activity.backward(); }
+      });
+      Lampa.Controller.toggle('ltp_cinema_home');
+    };
+    this.pause = function () {};
     this.stop = function () {};
     this.render = function () { return scroll.render(); };
     this.destroy = function () { alive = false; scroll.destroy(); root.remove(); content.remove(); };
