@@ -781,38 +781,25 @@
   /* ---------- меню, шапка, настройки ---------- */
 
   function addStyle() {
-    if ($('#ltp-style').length) return;
-    $('head').append('<style id="ltp-style">' +
-      '.ltp-weather{display:flex!important;align-items:center;width:auto!important;min-width:3em;padding:0 .6em;font-size:1.1em;white-space:nowrap;color:#fff}' +
-      '.ltp-weather .ltp-w-txt{font-weight:700;font-variant-numeric:tabular-nums}' +
-      '.ltp-menu-item .menu__ico,.ltp-w-menu .menu__ico{display:flex;align-items:center;justify-content:center}' +
-      '.ltp-menu-item .menu__ico svg{opacity:.95}' +
-      '.ltp-full-btn{border:1px solid rgba(255,255,255,.22)!important;border-radius:.35em!important;padding-left:1em!important;padding-right:1em!important}' +
-      '.ltp-full-btn svg{width:1.15em;height:1.15em;vertical-align:middle;margin-right:.45em}' +
-      '.ltp-full-btn span{font-weight:600}' +
-      '.ltp-menu-item.focus,.ltp-w-menu.focus,.ltp-full-btn.focus{background:rgba(255,255,255,.14)!important}' +
-      '/* CYBER PURPLE — global Lampa skin */' +
-      ':root{--ltp-violet:#a855f7;--ltp-violet2:#7c3aed;--ltp-cyan:#67e8f9;--ltp-bg:#080611;--ltp-panel:rgba(22,14,39,.88)}' +
-      'html,body{background:#080611!important;color:#f5efff!important}' +
-      'body{background-image:radial-gradient(ellipse at 18% 0%,rgba(124,58,237,.20),transparent 42%),radial-gradient(ellipse at 88% 24%,rgba(168,85,247,.11),transparent 38%)!important;background-attachment:fixed!important}' +
-      '.head,.menu,.menu__content,.menu__list,.activity,.activity__body,.settings,.settings__content,.selectbox,.selectbox__content,.modal,.modal__content{color:#f5efff!important}' +
-      '.head{background:linear-gradient(180deg,rgba(10,6,20,.97),rgba(10,6,20,.68))!important;border-bottom:1px solid rgba(168,85,247,.18)!important}' +
-      '.menu{background:linear-gradient(90deg,rgba(9,6,18,.98),rgba(18,10,31,.94))!important;border-right:1px solid rgba(168,85,247,.16)!important}' +
-      '.menu__item,.head__action,.selector{transition:background-color .14s ease,border-color .14s ease,transform .14s ease!important}' +
-      '.menu__item.focus,.head__action.focus,.selector.focus,.selectbox__item.focus,.settings__item.focus{background:linear-gradient(100deg,rgba(124,58,237,.38),rgba(168,85,247,.16))!important;outline:2px solid rgba(192,132,252,.88)!important;outline-offset:2px!important;box-shadow:0 0 0 3px rgba(168,85,247,.12),0 0 22px rgba(168,85,247,.22)!important;border-radius:.45em!important}' +
-      '.full-start__button,.button,.torrent-item,.selectbox__item{border-color:rgba(168,85,247,.28)!important}' +
-      '.full-start__button.focus,.button.focus{background:linear-gradient(110deg,#7c3aed,#a855f7)!important;color:#fff!important;box-shadow:0 0 22px rgba(168,85,247,.38)!important}' +
-      '.card__view,.card__title,.full-start-new__title,.full-start__title{ text-shadow:0 2px 16px rgba(0,0,0,.75)}' +
-      '.card.focus .card__view,.card.focus .card__title{border-color:#c084fc!important;box-shadow:0 0 0 2px rgba(192,132,252,.7),0 0 24px rgba(168,85,247,.34)!important}' +
-      '.selectbox,.modal,.settings__content{background:rgba(13,8,24,.97)!important;border:1px solid rgba(168,85,247,.25)!important;box-shadow:0 18px 60px rgba(0,0,0,.55),0 0 28px rgba(124,58,237,.12)!important}' +
-      '.selectbox__title,.modal__title,.settings__title{color:#e9d5ff!important}' +
-      '.ltp-menu-item,.ltp-w-menu,.ltp-head-btn{border-color:rgba(192,132,252,.22)!important}' +
-      '.ltp-menu-item .menu__ico,.ltp-w-menu .menu__ico,.ltp-head-btn{color:#c084fc!important}' +
-      '.ltp-weather{color:#e9d5ff!important}' +
-      'a{color:#c084fc}' +
-      '::selection{background:rgba(168,85,247,.42);color:#fff}' +
-      '@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}}' +
-      '</style>');
+    // Единственная точка подключения темы. Удаляем только наш предыдущий style,
+    // чужие стили и плагины не трогаем.
+    $('#ltp-style').remove();
+    $('body').addClass('ltp-cyber-purple');
+    var css = [
+      'body.ltp-cyber-purple{--ltp-violet:#a855f7;--ltp-violet2:#7c3aed;--ltp-bg:#090611;--ltp-panel:rgba(19,12,32,.96)}',
+      'body.ltp-cyber-purple .ltp-menu-item,body.ltp-cyber-purple .ltp-w-menu,body.ltp-cyber-purple .ltp-head-btn,body.ltp-cyber-purple .ltp-weather,body.ltp-cyber-purple .ltp-full-btn{color:#eadcff!important}',
+      'body.ltp-cyber-purple .ltp-menu-item,body.ltp-cyber-purple .ltp-w-menu,body.ltp-cyber-purple .ltp-head-btn{border-color:rgba(168,85,247,.28)!important}',
+      'body.ltp-cyber-purple .ltp-menu-item.focus,body.ltp-cyber-purple .ltp-w-menu.focus,body.ltp-cyber-purple .ltp-head-btn.focus,body.ltp-cyber-purple .ltp-full-btn.focus{background:rgba(124,58,237,.28)!important;outline:2px solid rgba(192,132,252,.82)!important;outline-offset:2px!important;box-shadow:0 0 18px rgba(168,85,247,.2)!important;border-radius:.45em!important}',
+      'body.ltp-cyber-purple .ltp-full-btn{border:1px solid rgba(168,85,247,.42)!important;border-radius:.45em!important;padding-left:1em!important;padding-right:1em!important}',
+      'body.ltp-cyber-purple .ltp-full-btn svg{width:1.15em;height:1.15em;vertical-align:middle;margin-right:.45em}',
+      'body.ltp-cyber-purple .ltp-full-btn span{font-weight:600}',
+      'body.ltp-cyber-purple .ltp-weather{display:flex!important;align-items:center;width:auto!important;min-width:3em;padding:0 .6em;font-size:1.1em;white-space:nowrap}',
+      'body.ltp-cyber-purple .ltp-weather .ltp-w-txt{font-weight:700;font-variant-numeric:tabular-nums}',
+      'body.ltp-cyber-purple .ltp-menu-item .menu__ico,body.ltp-cyber-purple .ltp-w-menu .menu__ico{display:flex;align-items:center;justify-content:center}',
+      'body.ltp-cyber-purple .ltp-menu-item .menu__ico svg{opacity:.95}',
+      '@media(prefers-reduced-motion:reduce){body.ltp-cyber-purple .ltp-menu-item,body.ltp-cyber-purple .ltp-w-menu,body.ltp-cyber-purple .ltp-head-btn,body.ltp-cyber-purple .ltp-full-btn{transition:none!important}}'
+    ].join('');
+    $('<style id="ltp-style"></style>').text(css).appendTo('head');
   }
 
   function addMenu() {
