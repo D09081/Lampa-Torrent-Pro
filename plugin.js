@@ -843,6 +843,16 @@
     if (data.poster_path) card.find('.card__img').attr('src', 'https://image.tmdb.org/t/p/w342' + data.poster_path);
     else card.find('.card__img').attr('src', './img/img_load.svg');
     card.addClass(data.name && !data.title ? 'card--tv' : 'card--movie');
+    function keepCardVisible() {
+      var node = card[0];
+      var parent = node && node.parentNode;
+      if (!node || !parent) return;
+      var left = node.offsetLeft;
+      var right = left + node.offsetWidth;
+      if (left < parent.scrollLeft) parent.scrollLeft = left;
+      else if (right > parent.scrollLeft + parent.clientWidth) parent.scrollLeft = right - parent.clientWidth;
+    }
+    card.on('hover:focus focusin', keepCardVisible);
     card.on('hover:enter', function () {
       data.source = 'tmdb';
       if (Lampa.Router && Lampa.Router.call) Lampa.Router.call('full', data);
@@ -1191,7 +1201,12 @@
     if (Lampa.Listener && Lampa.Listener.follow && !window.__lcos_skin_lifecycle) {
       window.__lcos_skin_lifecycle = true;
       Lampa.Listener.follow('activity', function (event) {
-        if (event.type === 'start' || event.type === 'ready') mountNativeSkin();
+        if (event.type === 'start' || event.type === 'ready') {
+          mountNativeSkin();
+          addMenu();
+          addWeatherMenu();
+          addHeadWidgets();
+        }
       });
     }
   }
