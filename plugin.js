@@ -5,7 +5,7 @@
   'use strict';
 
   var ID = 'lampa_torrent_pro';
-  var VERSION = '1.1.0';
+  var VERSION = '1.2.0';
   var TITLE = 'Torrent Pro';
 
   if (window.__ltp_loaded) return;
@@ -418,6 +418,10 @@
         var r = d && d.results && d.results[0];
         if (!r) throw new Error('Город не найден');
         return { name: r.name || city, lat: r.latitude, lon: r.longitude, query: city };
+      }).then(function (place) {
+        // Сохраняем координаты сразу после геокодирования для резервного 7Timer.
+        weatherCache.place = place;
+        return place;
       });
     }
     return placeP.then(function (place) {
@@ -444,7 +448,9 @@
   }
 
   function weather7Timer(city) {
-    var point = isBelgorod(city) ? BELGOROD : (weatherCache.place || BELGOROD);
+    var point = isBelgorod(city) ? BELGOROD :
+      (weatherCache.place && weatherCache.place.query === city ? weatherCache.place : null);
+    if (!point) return Promise.reject(new Error('Не удалось определить координаты города «' + city + '» для резервного прогноза'));
     var url = 'https://www.7timer.info/bin/api.pl?lon=' + point.lon + '&lat=' + point.lat + '&product=civil&output=json';
     return getJSON('https://proxy.cors.dev/' + url, 20000).then(function (d) {
       var rows = d && d.dataseries;
@@ -531,14 +537,18 @@
             ' • осадки ' + Math.round(d.precip) + '%' : '')
         });
       });
+      items.push({ title: 'Обновить прогноз', subtitle: 'Запросить свежие данные у погодных сервисов', ltp_refresh_weather: true });
       Lampa.Select.show({
         title: 'Погода',
         items: items,
         onBack: function () { backTo(prev); },
-        onSelect: function () { backTo(prev); }
+        onSelect: function (a) {
+          if (a && a.ltp_refresh_weather) return showWeather();
+          backTo(prev);
+        }
       });
     }).catch(function (e) {
-      setWeatherText('!');
+      setWeatherText('нет сети');
       notify('Погода недоступна. ' + e.message);
     });
   }
@@ -559,16 +569,32 @@
 
   function loadOnlinePlugin(plugin) {
     window.__ltp_external_plugins = window.__ltp_external_plugins || {};
-    if (window.__ltp_external_plugins[plugin.id]) { notify(plugin.title + ': уже подключён в этой сессии.'); return; }
+    if (window.__ltp_external_plugins[plugin.id] === true) { notify(plugin.title + ': уже подключён в этой сессии.'); return; }
+    if (window.__ltp_external_plugins[plugin.id] === 'loading') { notify(plugin.title + ': загрузка уже выполняется.'); return; }
     if (!Lampa.Utils || !Lampa.Utils.putScriptAsync) {
       try { Lampa.Utils.copyTextToClipboard(plugin.url); notify('Скопирован адрес ' + plugin.title + '. Добавьте его в Настройки → Расширения.'); }
       catch (_) { notify('Добавьте вручную: ' + plugin.url); }
       return;
     }
-    window.__ltp_external_plugins[plugin.id] = true;
+    window.__ltp_external_plugins[plugin.id] = 'loading';
+    var finished = false;
+    var timer = setTimeout(function () {
+      if (finished) return;
+      finished = true;
+      window.__ltp_external_plugins[plugin.id] = false;
+      notify('Не дождался ответа от ' + plugin.title + '. Проверьте интернет и попробуйте подключить ещё раз.');
+    }, 18000);
     try {
-      Lampa.Utils.putScriptAsync([plugin.url], function () { notify(plugin.title + ' загружен. Его кнопка появится на карточках фильма.'); });
+      Lampa.Utils.putScriptAsync([plugin.url], function () {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
+        window.__ltp_external_plugins[plugin.id] = true;
+        notify(plugin.title + ' загружен. Проверьте появление его кнопки на карточке фильма.');
+      });
     } catch (e) {
+      finished = true;
+      clearTimeout(timer);
       window.__ltp_external_plugins[plugin.id] = false;
       notify('Не удалось подключить ' + plugin.title + ': ' + e.message);
     }
@@ -656,7 +682,7 @@
         { title: 'Сериалы сейчас', subtitle: 'Новые серии и текущие сезоны', act: 'new_tv' },
         { title: 'Популярное', subtitle: 'Фильмы и сериалы недели', act: 'trending' },
         { title: 'Онлайн-источники', subtitle: 'VideoDB, Showy, онлайн-балансеры и официальные сервисы', act: 'sources' },
-        { title: 'Погода Белгород', subtitle: 'Сейчас и прогноз на несколько дней', act: 'weather' }
+        { title: 'Погода: ' + weatherCity(), subtitle: 'Сейчас и прогноз на несколько дней', act: 'weather' }
       ],
       onBack: function () { backTo(prev); },
       onSelect: function (a) {
