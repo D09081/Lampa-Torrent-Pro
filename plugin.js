@@ -304,7 +304,7 @@
         items.sort(function (a, b) { return a.title.localeCompare(b.title, 'ru'); });
       }
       return { items: items, link: r && r.link ? r.link : '' };
-    }).catch(function () { return []; });
+    }).catch(function () { return { items: [], link: '' }; });
   }
 
   function buildQuery(movie) {
