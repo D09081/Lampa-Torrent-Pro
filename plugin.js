@@ -5,7 +5,7 @@
   'use strict';
 
   var ID = 'lampa_torrent_pro';
-  var VERSION = '1.8.0';
+  var VERSION = '1.8.1';
   var TITLE = 'Cinema OS';
 
   if (window.__ltp_loaded) return;
@@ -1130,6 +1130,25 @@
       'body.lcos-native .selector.focus{outline:2px solid var(--lcos-purple);outline-offset:2px}',
       'body.lcos-native .player-panel,body.lcos-native .player-panel__body{background:rgba(12,10,18,.94)}',
       'body.lcos-native .scroll__body::-webkit-scrollbar{display:none}',
+      'body.lcos-native .full-start__details,body.lcos-native .full-start__tagline,body.lcos-native .full-start__descr,body.lcos-native .full-descr__text{color:#c7bfd3}',
+      'body.lcos-native .full-start__buttons{display:flex;flex-wrap:wrap;gap:.55em}',
+      'body.lcos-native .full-start__button{background:rgba(27,21,39,.94);border:1px solid rgba(190,151,255,.28);color:#eee5ff;padding:.72em 1.05em}',
+      'body.lcos-native .full-start__button.focus,body.lcos-native .full-start__button.hover{background:linear-gradient(110deg,#7540bd,#a56be8);border-color:#d2b2ff;color:#fff}',
+      'body.lcos-native .ltp-full-btn{background:linear-gradient(110deg,#5b2e94,#8b4de8)!important;border-color:#b78be9!important;color:#fff!important}',
+      'body.lcos-native .ltp-full-btn.focus,body.lcos-native .ltp-full-btn.hover{outline:2px solid #e0c8ff!important;outline-offset:2px!important}',
+      'body.lcos-native input,body.lcos-native textarea,body.lcos-native select,.lcos-native input,.lcos-native textarea,.lcos-native select{background:#100d18!important;color:#f7f2ff!important;border:1px solid rgba(190,151,255,.3)!important;border-radius:.55em!important}',
+      'body.lcos-native input:focus,body.lcos-native textarea:focus,body.lcos-native select:focus{border-color:#b78be9!important;outline:2px solid rgba(183,139,233,.28)!important}',
+      'body.lcos-native .search__input,body.lcos-native .search__input input,body.lcos-native .search__input-wrap{color:#fff}',
+      'body.lcos-native .search__input input{background:#15121f!important;border:1px solid var(--lcos-line)!important;border-radius:.7em!important;padding:.65em .85em!important}',
+      'body.lcos-native .selectbox__head,body.lcos-native .modal__head,body.lcos-native .settings__head{color:#fff;font-weight:800}',
+      'body.lcos-native .selectbox__item,body.lcos-native .settings__item,body.lcos-native .modal__button{border-radius:.55em;color:#eee5ff}',
+      'body.lcos-native .selectbox__item.focus,body.lcos-native .selectbox__item.hover,body.lcos-native .settings__item.focus,body.lcos-native .settings__item.hover,body.lcos-native .modal__button.focus{background:rgba(139,77,232,.28);outline:1px solid rgba(190,151,255,.48)}',
+      'body.lcos-native .player-panel,body.lcos-native .player-panel__body,body.lcos-native .player-panel__content,body.lcos-native .player-info{background:rgba(10,8,16,.96);color:#f7f2ff}',
+      'body.lcos-native .player-panel__button,body.lcos-native .player-panel .selector{border-radius:.55em}',
+      'body.lcos-native .player-panel__button.focus,body.lcos-native .player-panel .selector.focus{background:rgba(139,77,232,.32);outline:2px solid #b78be9}',
+      'body.lcos-native .torrent-item,body.lcos-native .online-item{background:#15121f;border:1px solid var(--lcos-line);border-radius:.65em;color:#f7f2ff}',
+      'body.lcos-native .torrent-item.focus,body.lcos-native .online-item.focus{border-color:#bd93ff;background:#241934}',
+      'body.lcos-native .scroll__body,body.lcos-native .scroll__content{scrollbar-color:transparent transparent}',
       'body.lcos-native .menu__split{border-color:var(--lcos-line)}',
       '@media(max-width:767px){body.lcos-native .card{width:10.4em}body.lcos-native .menu__item{padding:.72em .85em}}',
       '@media(prefers-reduced-motion:reduce){body.lcos-native *,body.lcos-native *:before,body.lcos-native *:after{transition:none!important;animation:none!important}}'
