@@ -5,7 +5,7 @@
   'use strict';
 
   var ID = 'lampa_torrent_pro';
-  var VERSION = '1.7.0';
+  var VERSION = '1.7.1';
   var TITLE = 'Cinema OS';
 
   if (window.__ltp_loaded) return;
@@ -616,7 +616,10 @@
 
   function selectedOnlinePlugins() {
     var value = get('ltp_online_plugins', []);
-    return Array.isArray(value) ? value : [];
+    var ids = Array.isArray(value) ? value.slice() : [];
+    // Онлайн МОД — обязательный базовый источник, всегда включён.
+    if (ids.indexOf('online_mod') < 0) ids.unshift('online_mod');
+    return ids;
   }
 
   function loadOnlinePlugin(plugin) {
@@ -685,6 +688,10 @@
         if (a.ltp_plugin) {
           var ids = selectedOnlinePlugins();
           var at = ids.indexOf(a.ltp_plugin.id);
+          if (a.ltp_plugin.id === 'online_mod') {
+            notify('Онлайн МОД — обязательный источник и всегда включён.');
+            return showOnlinePlugins(prev);
+          }
           if (at >= 0) ids.splice(at,1); else ids.push(a.ltp_plugin.id);
           try { Lampa.Storage.set('ltp_online_plugins', ids); } catch (_) {}
           if (at < 0) loadOnlinePlugin(a.ltp_plugin);
@@ -1169,6 +1176,8 @@
     addHeadWidgets();
     addSettings();
     addCardButton();
+    // Автозагрузка Онлайн МОД при каждом запуске Lampa.
+    loadSelectedOnlinePlugins();
     updateWeatherWidget();
     startWeatherRefresh();
 
