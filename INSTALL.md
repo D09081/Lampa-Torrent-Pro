@@ -1,4 +1,4 @@
-# Установка Lampa Torrent Pro 1.1.0
+# Установка Lampa Torrent Pro 1.3.0
 
 1. Lampa → Настройки → Расширения → Добавить плагин.
 2. Вставьте: `https://d09081.github.io/Lampa-Torrent-Pro/plugin.js`
