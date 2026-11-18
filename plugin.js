@@ -5,7 +5,7 @@
   'use strict';
 
   var ID = 'lampa_torrent_pro';
-  var VERSION = '1.8.4';
+  var VERSION = '1.9.0';
   var TITLE = 'Cinema OS';
 
   if (window.__ltp_loaded) return;
@@ -846,6 +846,70 @@
     return tile;
   }
 
+  // Локальная медиатека Cinema OS: данные хранятся на устройстве в Lampa.Storage.
+  var CINEMA_LIST_KEY = 'ltp_cinema_watchlist_v1';
+  function cinemaSavedItems() {
+    var items = get(CINEMA_LIST_KEY, []);
+    return Array.isArray(items) ? items : [];
+  }
+  function cinemaSaveItem(data) {
+    if (!data || !data.id) return;
+    var items = cinemaSavedItems();
+    var method = data.name && !data.title ? 'tv' : 'movie';
+    var key = method + ':' + data.id;
+    if (items.some(function (item) { return (item.media_type || (item.name && !item.title ? 'tv' : 'movie')) + ':' + item.id === key; })) {
+      notify('Уже есть в «Моём списке»');
+      return;
+    }
+    var item = {};
+    ['id','title','name','original_title','original_name','poster_path','backdrop_path','overview','release_date','first_air_date','vote_average','media_type'].forEach(function (field) {
+      if (data[field] !== undefined) item[field] = data[field];
+    });
+    item.media_type = data.media_type || method;
+    items.unshift(item);
+    if (items.length > 100) items = items.slice(0, 100);
+    try { Lampa.Storage.set(CINEMA_LIST_KEY, items); notify('Добавлено в «Мой список»'); }
+    catch (e) { notify('Не удалось сохранить: ' + e.message); }
+  }
+  function cinemaRemoveItem(data) {
+    var key = (data.media_type || (data.name && !data.title ? 'tv' : 'movie')) + ':' + data.id;
+    var items = cinemaSavedItems().filter(function (item) {
+      return (item.media_type || (item.name && !item.title ? 'tv' : 'movie')) + ':' + item.id !== key;
+    });
+    Lampa.Storage.set(CINEMA_LIST_KEY, items);
+  }
+  function cinemaOpenSavedList() {
+    var items = cinemaSavedItems();
+    if (!items.length) return notify('Список пуст. Добавляйте фильмы кнопкой «＋» на постерах.');
+    Lampa.Select.show({
+      title: 'Мой список · ' + items.length,
+      items: items.map(function (item) {
+        return { title: (item.title || item.name || 'Без названия') + (item.release_date || item.first_air_date ? ' · ' + String(item.release_date || item.first_air_date).slice(0,4) : ''), ltp_saved: item };
+      }),
+      onSelect: function (entry) {
+        if (!entry.ltp_saved) return;
+        var item = entry.ltp_saved;
+        item.source = 'tmdb';
+        if (Lampa.Router && Lampa.Router.call) Lampa.Router.call('full', item);
+        else Lampa.Activity.push({ url: '', title: item.title || item.name, component: 'full', id: item.id, method: item.media_type || 'movie', source: 'tmdb', card: item, page: 1 });
+      },
+      onLong: function (entry) {
+        if (!entry.ltp_saved) return;
+        Lampa.Select.show({
+          title: 'Управление списком',
+          items: [{ title: 'Удалить из моего списка' }, { title: 'Отмена' }],
+          onSelect: function (action) {
+            if (action.title.indexOf('Удалить') === 0) {
+              cinemaRemoveItem(entry.ltp_saved);
+              notify('Удалено из «Моего списка»');
+              cinemaOpenSavedList();
+            }
+          }
+        });
+      }
+    });
+  }
+
   function cinemaHomeCard(data) {
     var card = $('<div class="card selector lcos-home__card"><div class="card__view"><img class="card__img" /></div><div class="card__title"></div><div class="card__age"></div></div>');
     var title = data.title || data.name || data.original_title || data.original_name || 'Без названия';
@@ -862,6 +926,16 @@
       this.src = './img/img_load.svg';
     });
     card.addClass(data.name && !data.title ? 'card--tv' : 'card--movie');
+    var save = $('<div class="lcos-card-save selector" title="Добавить в мой список">＋</div>');
+    save.on('hover:enter', function (event) {
+      if (event && event.stopPropagation) event.stopPropagation();
+      cinemaSaveItem(data);
+    });
+    save.on('click', function (event) {
+      if (event && event.stopPropagation) event.stopPropagation();
+      cinemaSaveItem(data);
+    });
+    card.append(save);
     function keepCardVisible() {
       var node = card[0];
       var parent = node && node.parentNode;
@@ -966,14 +1040,16 @@
       nav.append(cinemaHomeAction('Поиск', 'Фильмы и сериалы', cinemaOpenSearch));
       nav.append(cinemaHomeAction('Фильмы', 'Каталог кино', function () { openCatalog('movie/popular', 'Популярные фильмы'); }));
       nav.append(cinemaHomeAction('Сериалы', 'Каталог сериалов', function () { openCatalog('tv/popular', 'Популярные сериалы'); }));
-      nav.append(cinemaHomeAction('Коллекция', 'Избранное', cinemaOpenCollection));
+      nav.append(cinemaHomeAction('Мой список', 'Ваши сохранённые фильмы', cinemaOpenSavedList));
+      nav.append(cinemaHomeAction('Избранное', 'Коллекция Lampa', cinemaOpenCollection));
       nav.append(cinemaHomeAction('История', 'Продолжить просмотр', cinemaOpenHistory));
       content.append(nav);
       actionGrid('БЫСТРЫЙ ДОСТУП', [
         ['Новинки кино', 'Свежие релизы', function () { openCatalog('movie/now_playing', 'Новинки кино'); }],
         ['Сериалы сейчас', 'Актуальные сериалы', function () { openCatalog('tv/on_the_air', 'Актуальные сериалы'); }],
         ['В тренде', 'Популярное за неделю', function () { openCatalog('trending/all/week', 'Сейчас популярно'); }],
-        ['Моя коллекция', 'Сохранённые фильмы', cinemaOpenCollection],
+        ['Мой список', 'Сохранённые фильмы и сериалы', cinemaOpenSavedList],
+        ['Избранное Lampa', 'Штатная коллекция', cinemaOpenCollection],
         ['Все источники', 'Онлайн и торренты', showSources],
         ['Подбор по жанру', 'Найти кино под настроение', cinemaOpenGenres],
         ['Погода', weatherCity() + ' · прогноз', showWeather],
@@ -1040,6 +1116,9 @@
       '.lcos-home__desc{font-size:.9em;color:#c4b9d1;margin-bottom:1.1em;max-width:38em}',
       '.lcos-home__hero-actions,.lcos-home__nav{display:flex;flex-wrap:wrap;gap:.55em}',
       '.lcos-home__action{display:flex;flex-direction:column;justify-content:center;min-width:9.5em;min-height:3.6em;padding:.7em .9em;border:1px solid rgba(190,151,255,.18);border-radius:.65em;background:rgba(255,255,255,.045);box-sizing:border-box}',
+      '.lcos-home__card{position:relative}',
+      '.lcos-card-save{position:absolute;right:.38em;top:.38em;z-index:4;width:1.9em;height:1.9em;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(16,12,25,.88);border:1px solid rgba(190,151,255,.55);color:#fff;font-size:1.25em;line-height:1}',
+      '.lcos-card-save.focus,.lcos-card-save.hover{background:#7541b5;border-color:#d5b7ff;box-shadow:0 0 .8em rgba(170,112,255,.5)}',
       '.lcos-home__action.focus,.lcos-home__action.hover{background:rgba(124,58,237,.34);border-color:#bd93ff;outline:2px solid rgba(189,147,255,.7);outline-offset:1px}',
       '.lcos-home__action-title{font-weight:750;color:#fff;font-size:.9em}',
       '.lcos-home__action-sub{font-size:.68em;color:#b7abc9;margin-top:.25em}',
