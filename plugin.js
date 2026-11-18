@@ -1,4 +1,4 @@
-/* Lampa Torrent Pro 1.1.0 — единый центр источников и просмотра для Lampa.
+/* Lampa Torrent Pro 1.3.0 — понятный киноцентр для Lampa.
  * Каталог и поиск остаются штатными средствами Lampa. На карточке показываются официальные
  * варианты просмотра, торрент-источники и подключаемые онлайн-балансеры. Погода — Белгород. */
 (function () {
@@ -6,13 +6,13 @@
 
   var ID = 'lampa_torrent_pro';
   var VERSION = '1.2.0';
-  var TITLE = 'Torrent Pro';
+  var TITLE = 'Киноцентр';
 
   if (window.__ltp_loaded) return;
   window.__ltp_loaded = true;
 
-  var SEARCH_ICON = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 3v8a7 7 0 0 0 14 0V3"/><path d="M5 7h4M15 7h4"/></svg>';
-  var MAGNET_ICON = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 3v8a7 7 0 0 0 14 0V3"/><path d="M5 7h4M15 7h4"/></svg>';
+  var SEARCH_ICON = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v4m5-4v4m5-4v4M3 10h18M10 14l5 3-5 3z"/></svg>';
+  var MAGNET_ICON = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4v7a7 7 0 0 0 14 0V4"/><path d="M5 4h4v6H5zm10 0h4v6h-4z"/></svg>';
 
   /* ---------- утилиты ---------- */
 
@@ -618,7 +618,8 @@
     var selected = selectedOnlinePlugins();
     var items = ONLINE_PLUGINS.map(function (p) {
       var enabled = selected.indexOf(p.id) >= 0;
-      return { title: (enabled ? '✓ ' : '+ ') + p.title, subtitle: p.desc, ltp_plugin: p };
+      var state = enabled ? 'Подключён для загрузки при запуске' : 'Не подключён';
+      return { title: (enabled ? '✓  ' : '+  ') + p.title, subtitle: state + ' · ' + p.desc, ltp_plugin: p };
     });
     items.push({ title:'Официальные кинотеатры', subtitle:'Netflix, Prime Video, Disney+ и другие — искать доступность через JustWatch', ltp_url:'https://www.justwatch.com/' });
     items.push({ title:'Lampac — 70+ источников', subtitle:'Укажите свой адрес сервера в настройках. Включает Kinogo, VideoDB и другие модули.', ltp_info:true });
@@ -647,14 +648,13 @@
     var prev = currentController();
     var jb = jackettBase();
     var items = [
-      { title: 'Онлайн-источники', subtitle: 'Подключить VideoDB, Showy, Online МОД и другие', ltp_plugins: true },
-      { title: 'Netflix и официальные кинотеатры', subtitle: 'Доступность и переходы через JustWatch', ltp_url: 'https://www.justwatch.com/' },
-      { title: 'TMDB — информация о фильмах и сервисах', subtitle: 'Доступность онлайн-просмотра по региону' },
-      { title: 'Internet Archive — открытые материалы', subtitle: 'Проверяйте права на конкретный файл', ltp_url: 'https://archive.org/details/movies' },
-      { title: 'Blender Open Movies', subtitle: 'Фильмы с открытыми лицензиями', ltp_url: 'https://studio.blender.org/films/' },
-      { title: 'Public Domain Torrents', subtitle: 'Каталог — проверяйте статус общественного достояния', ltp_url: 'https://www.publicdomaintorrents.info/' },
-      { title: 'Jackett — дополнительные индексаторы', subtitle: jb ? 'Подключён: ' + jb.replace(/^https?:\/\//, '') : 'Не настроен — нажмите, чтобы указать', ltp_settings: !jb },
-      { title: 'TorrServer — воспроизведение', subtitle: str('torrserver_url') || str('torrserver_url_two') || 'Нужен для большинства torrent/magnet-раздач (Настройки Lampa → TorrServer)' }
+      { title: '▶  Онлайн-источники', subtitle: 'Подключить Онлайн МОД, Showy, Cinema и Hermes', ltp_plugins: true },
+      { title: '🌍  Официальные кинотеатры', subtitle: 'Проверить Netflix и другие сервисы через JustWatch', ltp_url: 'https://www.justwatch.com/' },
+      { title: '🎞  Бесплатные фильмы с открытой лицензией', subtitle: 'Internet Archive — проверяйте права на каждый материал', ltp_url: 'https://archive.org/details/movies' },
+      { title: '🎥  Blender Open Movies', subtitle: 'Анимация и фильмы с открытыми лицензиями', ltp_url: 'https://studio.blender.org/films/' },
+      { title: '🧲  Поиск торрент-раздач', subtitle: jb ? 'Jackett подключён: ' + jb.replace(/^https?:\/\//, '') : 'Jackett не настроен — откройте настройки', ltp_settings: !jb },
+      { title: '⚙️  Настройки подключения', subtitle: 'Адреса Jackett, Lampac, регион и погода', ltp_settings: true },
+      { title: 'ℹ️  Нужен TorrServer?', subtitle: str('torrserver_url') || str('torrserver_url_two') ? 'Адрес TorrServer сохранён в настройках Lampa' : 'Для большинства magnet-раздач нужен TorrServer в настройках Lampa' }
     ];
     Lampa.Select.show({
       title: 'Источники',
@@ -673,27 +673,58 @@
 
   /* ---------- хаб ---------- */
 
+  function showHowTo(prev) {
+    prev = prev || currentController();
+    Lampa.Select.show({
+      title: 'Как пользоваться',
+      items: [
+        { title: '1. Найдите фильм', subtitle: 'Нажмите обычный поиск Lampa — отдельный поиск не нужен.' },
+        { title: '2. Откройте карточку', subtitle: 'На странице фильма или сериала выберите кнопку «Где смотреть».' },
+        { title: '3. Выберите способ просмотра', subtitle: 'Официальный сервис, онлайн-источник или торрент-раздача.' },
+        { title: 'Если не запускается', subtitle: 'Для онлайн-балансеров подключите плагин. Для торрентов обычно нужен TorrServer.' },
+        { title: 'Настроить источники', subtitle: 'Открыть список онлайн-плагинов и параметры подключения.', ltp_open_plugins: true }
+      ],
+      onBack: function () { backTo(prev); },
+      onSelect: function (a) {
+        if (a.ltp_open_plugins) return showOnlinePlugins(prev);
+        notify(a.subtitle);
+      }
+    });
+  }
+
+  function openPluginSettings(prev) {
+    prev = prev || currentController();
+    try {
+      Lampa.Settings.create(ID, { onBack: function () { Lampa.Controller.toggle(prev); } });
+    } catch (_) {
+      notify('Откройте Настройки → Расширения → Lampa Torrent Pro');
+    }
+  }
+
   function hub() {
     var prev = currentController();
     Lampa.Select.show({
-      title: TITLE,
+      title: 'Киноцентр',
       items: [
-        { title: 'Премьеры в кино', subtitle: 'Актуальные фильмы', act: 'new_movies' },
-        { title: 'Сериалы сейчас', subtitle: 'Новые серии и текущие сезоны', act: 'new_tv' },
-        { title: 'Популярное', subtitle: 'Фильмы и сериалы недели', act: 'trending' },
-        { title: 'Онлайн-источники', subtitle: 'VideoDB, Showy, онлайн-балансеры и официальные сервисы', act: 'sources' },
-        { title: 'Погода: ' + weatherCity(), subtitle: 'Сейчас и прогноз на несколько дней', act: 'weather' }
+        { title: '🔎  Как найти и посмотреть фильм', subtitle: 'Короткая инструкция — с чего начать', act: 'help' },
+        { title: '🔥  Сейчас популярно', subtitle: 'Фильмы и сериалы в тренде на этой неделе', act: 'trending' },
+        { title: '🎬  Новинки кино', subtitle: 'Фильмы, которые сейчас идут в кино', act: 'new_movies' },
+        { title: '📺  Актуальные сериалы', subtitle: 'Сериалы с выходящими новыми сериями', act: 'new_tv' },
+        { title: '🌐  Источники просмотра', subtitle: 'Онлайн-кинотеатры, балансеры и торренты', act: 'sources' },
+        { title: '🌤  Погода · ' + weatherCity(), subtitle: 'Температура сейчас и прогноз на несколько дней', act: 'weather' },
+        { title: '⚙️  Настройки киноцентра', subtitle: 'Регион, город, Jackett и собственный Lampac', act: 'settings' }
       ],
       onBack: function () { backTo(prev); },
       onSelect: function (a) {
         backTo(prev);
         switch (a.act) {
-          case 'hint': notify('Используйте поиск Lampa, откройте карточку фильма и нажмите «Где смотреть».'); break;
-          case 'new_movies': openCatalog('movie/now_playing', 'Премьеры в кино'); break;
-          case 'new_tv': openCatalog('tv/on_the_air', 'Новые сериалы'); break;
-          case 'trending': openCatalog('trending/all/week', 'В тренде'); break;
+          case 'help': showHowTo(prev); break;
+          case 'new_movies': openCatalog('movie/now_playing', 'Новинки кино'); break;
+          case 'new_tv': openCatalog('tv/on_the_air', 'Актуальные сериалы'); break;
+          case 'trending': openCatalog('trending/all/week', 'Сейчас популярно'); break;
           case 'sources': showSources(); break;
           case 'weather': showWeather(); break;
+          case 'settings': openPluginSettings(prev); break;
         }
       }
     });
@@ -730,7 +761,13 @@
     if ($('#ltp-style').length) return;
     $('head').append('<style id="ltp-style">' +
       '.ltp-weather{display:flex!important;align-items:center;width:auto!important;min-width:3em;padding:0 .6em;font-size:1.1em;white-space:nowrap;color:#fff}' +
-      '.ltp-weather .ltp-w-txt{font-weight:600}' +
+      '.ltp-weather .ltp-w-txt{font-weight:700;font-variant-numeric:tabular-nums}' +
+      '.ltp-menu-item .menu__ico,.ltp-w-menu .menu__ico{display:flex;align-items:center;justify-content:center}' +
+      '.ltp-menu-item .menu__ico svg{opacity:.95}' +
+      '.ltp-full-btn{border:1px solid rgba(255,255,255,.22)!important;border-radius:.35em!important;padding-left:1em!important;padding-right:1em!important}' +
+      '.ltp-full-btn svg{width:1.15em;height:1.15em;vertical-align:middle;margin-right:.45em}' +
+      '.ltp-full-btn span{font-weight:600}' +
+      '.ltp-menu-item.focus,.ltp-w-menu.focus,.ltp-full-btn.focus{background:rgba(255,255,255,.14)!important}' +
       '</style>');
   }
 
@@ -791,7 +828,7 @@
       if (Lampa.SettingsApi.addComponent) {
         Lampa.SettingsApi.addComponent({
           component: ID,
-          name: 'Lampa Torrent Pro',
+          name: 'Киноцентр · Lampa Torrent Pro',
           icon: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M4 3h16v2H4zm0 4h16v2H4zm0 4h10v2H4zm0 4h16v2H4zm0 4h10v2H4z"/></svg>'
         });
       }
@@ -823,6 +860,7 @@
     window.lampaTorrentPro = {
       version: VERSION,
       hub: hub,
+      help: showHowTo,
       weather: showWeather,
       advertising: false,
       telemetry: false
