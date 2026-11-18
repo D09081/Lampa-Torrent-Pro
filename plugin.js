@@ -36,8 +36,21 @@
     return bytes.toFixed(i > 1 ? 1 : 0) + ' ' + units[i];
   }
 
+  // Короткий cache + объединение одинаковых параллельных запросов.
+  // Не даём повторным экранам запускать одинаковую сетевую работу.
+  var requestCache = {};
+  var requestPending = {};
+  var REQUEST_CACHE_TTL = 10000;
+  var REQUEST_CACHE_LIMIT = 40;
+
   function getJSON(url, timeout) {
-    return new Promise(function (resolve, reject) {
+    var key = String(url);
+    var cached = requestCache[key];
+    var now = Date.now();
+    if (cached && cached.expires > now) return Promise.resolve(cached.data);
+    if (requestPending[key]) return requestPending[key];
+
+    var task = new Promise(function (resolve, reject) {
       var xhr = new XMLHttpRequest();
       xhr.open('GET', url, true);
       xhr.timeout = timeout || 15000;
@@ -51,7 +64,23 @@
       xhr.ontimeout = function () { reject(new Error('Таймаут запроса')); };
       xhr.onabort = function () { reject(new Error('Запрос отменён')); };
       xhr.send();
+    }).then(function (data) {
+      requestCache[key] = { data: data, expires: Date.now() + REQUEST_CACHE_TTL };
+      var keys = Object.keys(requestCache);
+      if (keys.length > REQUEST_CACHE_LIMIT) {
+        keys.sort(function (a,b) { return requestCache[a].expires - requestCache[b].expires; });
+        keys.slice(0, keys.length - REQUEST_CACHE_LIMIT).forEach(function (k) { delete requestCache[k]; });
+      }
+      return data;
+    }).then(function (data) {
+      delete requestPending[key];
+      return data;
+    }, function (error) {
+      delete requestPending[key];
+      throw error;
     });
+    requestPending[key] = task;
+    return task;
   }
 
   function normalizeBase(url) {
@@ -925,6 +954,27 @@
     }
   }
 
+  function startWeatherRefresh() {
+    if (window.__ltp_weather_timer) clearInterval(window.__ltp_weather_timer);
+    if (window.__ltp_visibility_handler) {
+      document.removeEventListener('visibilitychange', window.__ltp_visibility_handler);
+    }
+    function schedule() {
+      if (document.hidden) return;
+      window.__ltp_weather_timer = setInterval(updateWeatherWidget, 30 * 60 * 1000);
+    }
+    window.__ltp_visibility_handler = function () {
+      if (window.__ltp_weather_timer) clearInterval(window.__ltp_weather_timer);
+      window.__ltp_weather_timer = null;
+      if (!document.hidden) {
+        updateWeatherWidget();
+        schedule();
+      }
+    };
+    document.addEventListener('visibilitychange', window.__ltp_visibility_handler);
+    schedule();
+  }
+
   function start() {
     if (window.__ltp_started) return;
     window.__ltp_started = true;
@@ -937,8 +987,7 @@
     addCardButton();
     loadSelectedOnlinePlugins();
     updateWeatherWidget();
-    if (window.__ltp_weather_timer) clearInterval(window.__ltp_weather_timer);
-    window.__ltp_weather_timer = setInterval(updateWeatherWidget, 30 * 60 * 1000);
+    startWeatherRefresh();
 
     window.lampaTorrentPro = {
       version: VERSION,
