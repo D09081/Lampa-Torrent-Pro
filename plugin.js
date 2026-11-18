@@ -5,7 +5,7 @@
   'use strict';
 
   var ID = 'lampa_torrent_pro';
-  var VERSION = '1.8.3';
+  var VERSION = '1.8.4';
   var TITLE = 'Cinema OS';
 
   if (window.__ltp_loaded) return;
@@ -259,11 +259,17 @@
     searchAll(query).then(function (result) {
       try { Lampa.Loading.stop(); } catch (_) {}
       var items = [];
-      result.items.forEach(function (r) {
+      result.items.slice().sort(function (a, b) {
+        return sourcePreferenceScore(b) - sourcePreferenceScore(a);
+      }).forEach(function (r) {
         var meta = [r.source];
         if (r.seeders) meta.push('↑' + r.seeders);
         var size = fmtSize(r.size);
         if (size) meta.push(size);
+        var quality = /\\b(2160p|4k|uhd)\\b/i.test(r.title) ? '4K' :
+          /\\b(1080p|1080i|full.?hd)\\b/i.test(r.title) ? '1080p' :
+          /\\b(720p|hd)\\b/i.test(r.title) ? '720p' : '';
+        if (quality) meta.push(quality);
         items.push({ title: r.title, subtitle: meta.join(' • '), ltp_entry: r });
       });
 
@@ -890,6 +896,42 @@
     try { Lampa.Activity.push({ url: '', title: 'Продолжить просмотр', component: 'watch_history', page: 1 }); }
     catch (e) { notify('История просмотров недоступна: ' + e.message); }
   }
+
+  // Быстрые подборки по жанрам. Используют каталог TMDB внутри Lampa.
+  function cinemaOpenGenres() {
+    var genres = [
+      { title: 'Фантастика', id: 878 }, { title: 'Боевики', id: 28 },
+      { title: 'Комедии', id: 35 }, { title: 'Триллеры', id: 53 },
+      { title: 'Драмы', id: 18 }, { title: 'Ужасы', id: 27 },
+      { title: 'Приключения', id: 12 }, { title: 'Мультфильмы', id: 16 },
+      { title: 'Детективы', id: 9648 }, { title: 'Романтика', id: 10749 }
+    ];
+    Lampa.Select.show({
+      title: 'Подобрать фильм по жанру',
+      items: genres.map(function (g) { return { title: g.title, ltp_genre: g }; }),
+      onSelect: function (item) {
+        if (item.ltp_genre) openCatalog('discover/movie?with_genres=' + item.ltp_genre.id + '&sort_by=popularity.desc', item.ltp_genre.title);
+      }
+    });
+  }
+
+  function sourcePreferenceScore(entry) {
+    var title = String(entry.title || '').toLowerCase();
+    var quality = str('ltp_quality_preference').toLowerCase();
+    var audio = str('ltp_audio_preference').toLowerCase();
+    var score = 0;
+    var q4 = /\\b(2160p|4k|uhd)\\b/i.test(title);
+    var q1080 = /\\b(1080p|1080i|full.?hd)\\b/i.test(title);
+    var q720 = /\\b(720p|hd)\\b/i.test(title);
+    var q480 = /\\b(480p|sd)\\b/i.test(title);
+    if (quality.indexOf('4k') >= 0 || quality.indexOf('2160') >= 0) score += q4 ? 500 : q1080 ? 250 : q720 ? 100 : 0;
+    else if (quality.indexOf('720') >= 0) score += q720 ? 500 : q1080 ? 350 : q4 ? 250 : 0;
+    else score += q1080 ? 500 : q4 ? 400 : q720 ? 250 : q480 ? 100 : 0;
+    if (audio && (title.indexOf(audio) >= 0 || (audio.indexOf('рус') >= 0 && /\\b(rus|russian)\\b|рус|дубляж|многоголос/i.test(title)))) score += 350;
+    else if (/\\b(rus|russian)\\b|рус|дубляж|многоголос/i.test(title)) score += 80;
+    score += Math.min(150, Math.max(0, Number(entry.seeders) || 0) * 2);
+    return score;
+  }
   function CinemaHomeComponent(object) {
     var scroll = new Lampa.Scroll({ mask: true, over: true });
     var alive = true;
@@ -933,6 +975,7 @@
         ['В тренде', 'Популярное за неделю', function () { openCatalog('trending/all/week', 'Сейчас популярно'); }],
         ['Моя коллекция', 'Сохранённые фильмы', cinemaOpenCollection],
         ['Все источники', 'Онлайн и торренты', showSources],
+        ['Подбор по жанру', 'Найти кино под настроение', cinemaOpenGenres],
         ['Погода', weatherCity() + ' · прогноз', showWeather],
         ['Настройки', 'Настроить Cinema OS', function () { openPluginSettings(currentController()); }],
         ['Инструменты LTP', 'Дополнительные функции', hub]
@@ -1116,6 +1159,8 @@
       addParam('ltp_lampac_url', 'input', 'Адрес своего Lampac-сервера',
         'Необязательно. Если у вас есть Lampac, укажите адрес, например http://192.168.1.20:9118. Не используйте неизвестные публичные серверы.', '');
       addParam('ltp_region', 'input', 'Регион для «Где смотреть»', 'Код страны, например RU, UA, BY, KZ. По умолчанию RU.', 'RU');
+      addParam('ltp_quality_preference', 'input', 'Предпочитаемое качество', 'Влияет на порядок результатов, например 1080p, 4K или 720p. Фактическое качество зависит от раздачи.', '1080p');
+      addParam('ltp_audio_preference', 'input', 'Предпочитаемая озвучка', 'Слова для приоритета в названиях раздач, например русская, lostfilm, дубляж. Автовыбор дорожки зависит от плеера.', 'русская');
       addParam('ltp_weather_enabled', 'trigger', 'Показывать погоду', 'Температура в шапке Lampa (Open-Meteo).', true);
       addParam('ltp_weather_city', 'input', 'Город для погоды', 'По умолчанию Белгород.', 'Белгород');
       addParam('ltp_performance_mode', 'trigger', 'Режим производительности', 'Уменьшает анимации и тяжёлые эффекты для слабых телевизоров. Вступает в силу после перезапуска Lampa.', true);
