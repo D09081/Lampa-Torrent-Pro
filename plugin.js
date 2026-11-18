@@ -5,7 +5,7 @@
   'use strict';
 
   var ID = 'lampa_torrent_pro';
-  var VERSION = '1.8.1';
+  var VERSION = '1.8.2';
   var TITLE = 'Cinema OS';
 
   if (window.__ltp_loaded) return;
