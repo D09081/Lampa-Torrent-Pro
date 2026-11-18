@@ -857,7 +857,7 @@
       var shelf = $('<section class="lcos-home__shelf"><div class="lcos-home__shelf-head"><div class="lcos-home__shelf-title"></div><div class="lcos-home__shelf-sub"></div></div><div class="lcos-home__cards"></div></section>');
       shelf.find('.lcos-home__shelf-title').text(title);
       shelf.find('.lcos-home__shelf-sub').text(subtitle || '');
-      cards.slice(0, 12).forEach(function (item) {
+      cards.slice(0, 8).forEach(function (item) {
         shelf.find('.lcos-home__cards').append(cinemaHomeCard(item));
       });
       content.append(shelf);
@@ -876,6 +876,7 @@
         .append(cinemaHomeAction('Все источники', 'Онлайн, торренты и сервисы', showSources))
         .append(cinemaHomeAction('Погода', weatherCity() + ' · прогноз', showWeather));
       content.append(hero);
+      scroll.append(root);
 
       var nav = $('<div class="lcos-home__nav"></div>');
       nav.append(cinemaHomeAction('Фильмы', 'Каталог кино', function () { openCatalog('movie/popular', 'Популярные фильмы'); }));
@@ -888,6 +889,7 @@
       var url = Lampa.TMDB && Lampa.TMDB.api ? Lampa.TMDB.api('trending/all/week') : '';
       if (!url) {
         this.activity.loader(false);
+        this.activity.toggle();
         return this.render();
       }
       getJSON(url).then(function (data) {
@@ -949,7 +951,7 @@
       '.lcos-home__cards{display:flex;flex-wrap:nowrap;gap:.8em;overflow:visible}',
       '.lcos-home__card{width:8.2em;min-width:8.2em;flex:0 0 8.2em}',
       '.lcos-home__card .card__view{border-radius:.55em;overflow:hidden}',
-      '.lcos-home__card .card__img{width:100%;height:auto;aspect-ratio:2/3;object-fit:cover}',
+      '.lcos-home__card .card__img{width:100%;height:12.3em;object-fit:cover}',
       '.lcos-home__card.focus .card__view,.lcos-home__card.hover .card__view{outline:2px solid #bd93ff;box-shadow:0 0 0 3px rgba(124,58,237,.18)}',
       '@media(max-width:900px){.lcos-home__content{padding:1em}.lcos-home__title{font-size:1.5em}.lcos-home__action{min-width:8.5em}}',
       'body.lcos-performance .lcos-home__hero{background:#171122}',
