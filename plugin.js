@@ -5,7 +5,7 @@
   'use strict';
 
   var ID = 'lampa_torrent_pro';
-  var VERSION = '1.6.1';
+  var VERSION = '1.6.2';
   var TITLE = 'Cinema OS';
 
   if (window.__ltp_loaded) return;
@@ -667,10 +667,12 @@
 
   function showOnlinePlugins(prev) {
     prev = prev || currentController();
+    // Загружаем выбранные источники только по запросу пользователя, а не при запуске Lampa.
+    loadSelectedOnlinePlugins();
     var selected = selectedOnlinePlugins();
     var items = ONLINE_PLUGINS.map(function (p) {
       var enabled = selected.indexOf(p.id) >= 0;
-      var state = enabled ? 'Подключён для загрузки при запуске' : 'Не подключён';
+      var state = enabled ? 'Включён · подключится при открытии этого раздела' : 'Не подключён';
       return { title: (enabled ? '✓  ' : '+  ') + p.title, subtitle: state + ' · ' + p.desc, ltp_plugin: p };
     });
     items.push({ title:'Официальные кинотеатры', subtitle:'Netflix, Prime Video, Disney+ и другие — искать доступность через JustWatch', ltp_url:'https://www.justwatch.com/' });
@@ -1014,7 +1016,6 @@
     addHeadWidgets();
     addSettings();
     addCardButton();
-    loadSelectedOnlinePlugins();
     updateWeatherWidget();
     startWeatherRefresh();
 
