@@ -5,7 +5,7 @@
   'use strict';
 
   var ID = 'lampa_torrent_pro';
-  var VERSION = '1.7.1';
+  var VERSION = '1.8.0';
   var TITLE = 'Cinema OS';
 
   if (window.__ltp_loaded) return;
@@ -851,6 +851,22 @@
     return card;
   }
 
+  function cinemaOpenSearch() {
+    try {
+      if (Lampa.Search && typeof Lampa.Search.open === 'function') return Lampa.Search.open();
+      Lampa.Activity.push({ url: '', title: 'Поиск', component: 'search', page: 1 });
+    } catch (e) { notify('Поиск Lampa недоступен: ' + e.message); }
+  }
+  function cinemaOpenCollection() {
+    try {
+      if (Lampa.Router && Lampa.Router.call) Lampa.Router.call('favorite', { type: 'book', title: 'Моя коллекция' });
+      else Lampa.Activity.push({ url: '', title: 'Моя коллекция', component: 'favorite', type: 'book', page: 1 });
+    } catch (e) { notify('Коллекция недоступна: ' + e.message); }
+  }
+  function cinemaOpenHistory() {
+    try { Lampa.Activity.push({ url: '', title: 'Продолжить просмотр', component: 'watch_history', page: 1 }); }
+    catch (e) { notify('История просмотров недоступна: ' + e.message); }
+  }
   function CinemaHomeComponent(object) {
     var scroll = new Lampa.Scroll({ mask: true, over: true });
     var alive = true;
@@ -858,40 +874,47 @@
     var content = $('<div class="lcos-home__content"></div>');
     root.append(content);
     var self = this;
-
     function addShelf(title, subtitle, cards) {
       if (!alive || !cards || !cards.length) return;
       var shelf = $('<section class="lcos-home__shelf"><div class="lcos-home__shelf-head"><div class="lcos-home__shelf-title"></div><div class="lcos-home__shelf-sub"></div></div><div class="lcos-home__cards"></div></section>');
       shelf.find('.lcos-home__shelf-title').text(title);
       shelf.find('.lcos-home__shelf-sub').text(subtitle || '');
-      cards.slice(0, 8).forEach(function (item) {
-        shelf.find('.lcos-home__cards').append(cinemaHomeCard(item));
-      });
+      cards.slice(0, 7).forEach(function (item) { shelf.find('.lcos-home__cards').append(cinemaHomeCard(item)); });
       content.append(shelf);
     }
-
+    function actionGrid(title, items, className) {
+      var section = $('<section class="lcos-home__section"><div class="lcos-home__section-title"></div><div class="lcos-home__grid"></div></section>');
+      section.find('.lcos-home__section-title').text(title);
+      if (className) section.addClass(className);
+      items.forEach(function (item) { section.find('.lcos-home__grid').append(cinemaHomeAction(item[0], item[1], item[2])); });
+      content.append(section);
+    }
     this.create = function () {
-      var hero = $('<div class="lcos-home__hero"><div class="lcos-home__eyebrow">YOUR PERSONAL CINEMA</div><div class="lcos-home__title">Кино начинается здесь</div><div class="lcos-home__desc">Фильмы, сериалы и удобный доступ к источникам — в одном месте</div><div class="lcos-home__actions"></div></div>');
-      hero.find('.lcos-home__actions')
-        .append(cinemaHomeAction('Продолжить просмотр', 'История и прогресс', function () {
-          Lampa.Activity.push({ url: '', title: 'Продолжить просмотр', component: 'watch_history', page: 1 });
-        }))
-        .append(cinemaHomeAction('Моя коллекция', 'Избранное и закладки', function () {
-          if (Lampa.Router && Lampa.Router.call) Lampa.Router.call('favorite', { type: 'book', title: 'Моя коллекция' });
-          else Lampa.Activity.push({ url: '', title: 'Моя коллекция', component: 'favorite', type: 'book', page: 1 });
-        }))
-        .append(cinemaHomeAction('Все источники', 'Онлайн, торренты и сервисы', showSources))
-        .append(cinemaHomeAction('Погода', weatherCity() + ' · прогноз', showWeather));
+      content.append($('<div class="lcos-home__top"><div class="lcos-home__brand"><span class="lcos-home__brand-mark">C</span><span><b>CINEMA</b><small>PERSONAL MEDIA SYSTEM</small></span></div><div class="lcos-home__top-status">CINEMA OS <i></i> ONLINE</div></div>'));
+      var hero = $('<div class="lcos-home__hero"><div class="lcos-home__eyebrow">ВАША МЕДИАСИСТЕМА</div><div class="lcos-home__title">Кино начинается здесь</div><div class="lcos-home__desc">Фильмы, сериалы и источники просмотра — в одном пространстве.</div><div class="lcos-home__hero-actions"></div></div>');
+      hero.find('.lcos-home__hero-actions')
+        .append(cinemaHomeAction('▶  Продолжить', 'Вернуться к просмотру', cinemaOpenHistory))
+        .append(cinemaHomeAction('⌕  Найти фильм', 'Поиск по каталогу', cinemaOpenSearch));
       content.append(hero);
-      scroll.append(root);
-
       var nav = $('<div class="lcos-home__nav"></div>');
+      nav.append(cinemaHomeAction('Главная', 'Обзор', cinemaHomeOpen));
+      nav.append(cinemaHomeAction('Поиск', 'Фильмы и сериалы', cinemaOpenSearch));
       nav.append(cinemaHomeAction('Фильмы', 'Каталог кино', function () { openCatalog('movie/popular', 'Популярные фильмы'); }));
       nav.append(cinemaHomeAction('Сериалы', 'Каталог сериалов', function () { openCatalog('tv/popular', 'Популярные сериалы'); }));
-      nav.append(cinemaHomeAction('Новинки', 'Свежие релизы', function () { openCatalog('movie/now_playing', 'Новинки кино'); }));
-      nav.append(cinemaHomeAction('В тренде', 'Популярное сейчас', function () { openCatalog('trending/all/week', 'Сейчас популярно'); }));
+      nav.append(cinemaHomeAction('Коллекция', 'Избранное', cinemaOpenCollection));
+      nav.append(cinemaHomeAction('История', 'Продолжить просмотр', cinemaOpenHistory));
       content.append(nav);
-
+      actionGrid('БЫСТРЫЙ ДОСТУП', [
+        ['Новинки кино', 'Свежие релизы', function () { openCatalog('movie/now_playing', 'Новинки кино'); }],
+        ['Сериалы сейчас', 'Актуальные сериалы', function () { openCatalog('tv/on_the_air', 'Актуальные сериалы'); }],
+        ['В тренде', 'Популярное за неделю', function () { openCatalog('trending/all/week', 'Сейчас популярно'); }],
+        ['Моя коллекция', 'Сохранённые фильмы', cinemaOpenCollection],
+        ['Все источники', 'Онлайн и торренты', showSources],
+        ['Погода', weatherCity() + ' · прогноз', showWeather],
+        ['Настройки', 'Настроить Cinema OS', function () { openPluginSettings(currentController()); }],
+        ['Инструменты LTP', 'Дополнительные функции', hub]
+      ], 'lcos-home__quick');
+      content.append($('<div class="lcos-home__section-title lcos-home__section-title--feed">ВАШ ВЕЧЕР В КИНО</div>'));
       this.activity.loader(true);
       var url = Lampa.TMDB && Lampa.TMDB.api ? Lampa.TMDB.api('trending/all/week') : '';
       if (!url) {
@@ -902,8 +925,12 @@
       getJSON(url).then(function (data) {
         if (!alive) return;
         var results = (data && data.results) || [];
-        addShelf('Сейчас популярно', 'Подборка недели', results);
-        addShelf('Фильмы', 'Популярное кино', results.filter(function (item) { return item.title || item.original_title; }));
+        var first = results[0];
+        if (first && first.backdrop_path) {
+          hero.css('background-image', 'linear-gradient(90deg,rgba(9,8,15,.98) 0%,rgba(9,8,15,.82) 48%,rgba(9,8,15,.35) 100%),url(https://image.tmdb.org/t/p/w1280' + first.backdrop_path + ')');
+        }
+        addShelf('Сейчас популярно', 'Выборка недели · фильмы и сериалы', results);
+        addShelf('Фильмы', 'То, что сейчас смотрят', results.filter(function (item) { return item.title || item.original_title; }));
         addShelf('Сериалы', 'Популярные сериалы', results.filter(function (item) { return item.name || item.original_name; }));
         self.activity.loader(false);
         self.activity.toggle();
@@ -915,16 +942,10 @@
       });
       return this.render();
     };
-
     this.start = function () {};
     this.stop = function () {};
     this.render = function () { return scroll.render(); };
-    this.destroy = function () {
-      alive = false;
-      scroll.destroy();
-      root.remove();
-      content.remove();
-    };
+    this.destroy = function () { alive = false; scroll.destroy(); root.remove(); content.remove(); };
   }
 
   function registerCinemaHome() {
@@ -938,30 +959,43 @@
     var style = document.createElement('style');
     style.id = 'lcos-home-style';
     style.textContent = [
-      '.lcos-home{width:100%;min-height:100%;color:#f7f2ff}',
-      '.lcos-home__content{padding:1.2em 2.2em 3em;box-sizing:border-box}',
-      '.lcos-home__hero{padding:2em 2.2em 1.8em;border:1px solid rgba(190,151,255,.2);border-radius:1.1em;background:linear-gradient(110deg,rgba(65,38,100,.72),rgba(20,15,31,.96) 68%);margin-bottom:1.3em}',
-      '.lcos-home__eyebrow{font-size:.72em;letter-spacing:.18em;color:#c4a4ff;font-weight:700}',
-      '.lcos-home__title{font-size:2.15em;font-weight:800;margin:.35em 0;color:#fff}',
-      '.lcos-home__desc{font-size:.95em;color:#bdb2ce;margin-bottom:1.25em}',
-      '.lcos-home__actions,.lcos-home__nav{display:flex;flex-wrap:wrap;gap:.65em}',
-      '.lcos-home__action{display:flex;flex-direction:column;justify-content:center;min-width:10.5em;min-height:4.1em;padding:.7em 1em;border:1px solid rgba(190,151,255,.2);border-radius:.65em;background:rgba(255,255,255,.045);box-sizing:border-box}',
-      '.lcos-home__action.focus,.lcos-home__action.hover{background:rgba(124,58,237,.32);border-color:#bd93ff;outline:2px solid rgba(189,147,255,.65)}',
-      '.lcos-home__action-title{font-weight:700;color:#fff;font-size:.94em}',
-      '.lcos-home__action-sub{font-size:.72em;color:#b7abc9;margin-top:.28em}',
-      '.lcos-home__nav{margin:1em 0 1.5em}',
-      '.lcos-home__nav .lcos-home__action{min-width:8em;min-height:3.4em;background:rgba(30,23,43,.88)}',
-      '.lcos-home__shelf{margin:1.6em 0 1.1em}',
+      '.lcos-home{width:100%;min-height:100%;color:#f7f2ff;background:#09080f}',
+      '.lcos-home__content{padding:1.15em 2.1em 3em;box-sizing:border-box;max-width:100%}',
+      '.lcos-home__top{display:flex;align-items:center;justify-content:space-between;padding:.2em .1em 1.1em;border-bottom:1px solid rgba(190,151,255,.14);margin-bottom:1.1em}',
+      '.lcos-home__brand{display:flex;align-items:center;gap:.75em;letter-spacing:.13em;font-size:1em}',
+      '.lcos-home__brand-mark{display:flex;align-items:center;justify-content:center;width:2.1em;height:2.1em;border-radius:.65em;background:linear-gradient(145deg,#b57cff,#6b35bc);font-size:1.15em;font-weight:900;color:#fff;box-shadow:0 .35em 1.2em rgba(126,68,205,.25)}',
+      '.lcos-home__brand b{display:block;color:#fff;font-size:1em}',
+      '.lcos-home__brand small{display:block;color:#9386a8;font-size:.55em;letter-spacing:.2em;margin-top:.25em}',
+      '.lcos-home__top-status{font-size:.65em;letter-spacing:.14em;color:#a99db9}',
+      '.lcos-home__top-status i{display:inline-block;width:.55em;height:.55em;border-radius:50%;background:#8be0b0;margin:0 .45em;box-shadow:0 0 .7em rgba(139,224,176,.5)}',
+      '.lcos-home__hero{min-height:12em;display:flex;flex-direction:column;justify-content:center;padding:2em 2.2em;border:1px solid rgba(190,151,255,.2);border-radius:1em;background:linear-gradient(100deg,#2c1c43,#171020 72%);background-size:cover;background-position:center 35%;margin-bottom:1em;box-sizing:border-box}',
+      '.lcos-home__eyebrow{font-size:.68em;letter-spacing:.2em;color:#c4a4ff;font-weight:800}',
+      '.lcos-home__title{font-size:2.25em;font-weight:900;margin:.35em 0;color:#fff}',
+      '.lcos-home__desc{font-size:.9em;color:#c4b9d1;margin-bottom:1.1em;max-width:38em}',
+      '.lcos-home__hero-actions,.lcos-home__nav{display:flex;flex-wrap:wrap;gap:.55em}',
+      '.lcos-home__action{display:flex;flex-direction:column;justify-content:center;min-width:9.5em;min-height:3.6em;padding:.7em .9em;border:1px solid rgba(190,151,255,.18);border-radius:.65em;background:rgba(255,255,255,.045);box-sizing:border-box}',
+      '.lcos-home__action.focus,.lcos-home__action.hover{background:rgba(124,58,237,.34);border-color:#bd93ff;outline:2px solid rgba(189,147,255,.7);outline-offset:1px}',
+      '.lcos-home__action-title{font-weight:750;color:#fff;font-size:.9em}',
+      '.lcos-home__action-sub{font-size:.68em;color:#b7abc9;margin-top:.25em}',
+      '.lcos-home__nav{margin:1em 0 1.25em;padding-bottom:1em;border-bottom:1px solid rgba(190,151,255,.13)}',
+      '.lcos-home__nav .lcos-home__action{min-width:7.2em;min-height:3.1em;background:#15111f}',
+      '.lcos-home__section{margin:1.25em 0}',
+      '.lcos-home__section-title{font-size:.7em;font-weight:800;letter-spacing:.18em;color:#a98bcf;margin:1.2em 0 .7em}',
+      '.lcos-home__section-title--feed{margin-top:1.5em}',
+      '.lcos-home__grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.65em}',
+      '.lcos-home__quick .lcos-home__action{min-width:0;min-height:4.1em;background:linear-gradient(145deg,#191423,#110e18)}',
+      '.lcos-home__shelf{margin:1.55em 0 1.1em}',
       '.lcos-home__shelf-head{margin-bottom:.65em}',
-      '.lcos-home__shelf-title{font-size:1.25em;font-weight:800;color:#fff}',
-      '.lcos-home__shelf-sub{font-size:.72em;color:#a99db9;margin-top:.2em}',
-      '.lcos-home__cards{display:flex;flex-wrap:nowrap;gap:.8em;overflow:visible}',
-      '.lcos-home__card{width:8.2em;min-width:8.2em;flex:0 0 8.2em}',
+      '.lcos-home__shelf-title{font-size:1.2em;font-weight:850;color:#fff}',
+      '.lcos-home__shelf-sub{font-size:.68em;color:#a99db9;margin-top:.2em}',
+      '.lcos-home__cards{display:flex;flex-wrap:nowrap;gap:.8em;overflow-x:auto;overflow-y:hidden;padding:.2em .15em .65em;scrollbar-width:none}',
+      '.lcos-home__cards::-webkit-scrollbar{display:none}',
+      '.lcos-home__card{width:8.1em;min-width:8.1em;flex:0 0 8.1em}',
       '.lcos-home__card .card__view{border-radius:.55em;overflow:hidden}',
-      '.lcos-home__card .card__img{width:100%;height:12.3em;object-fit:cover}',
-      '.lcos-home__card.focus .card__view,.lcos-home__card.hover .card__view{outline:2px solid #bd93ff;box-shadow:0 0 0 3px rgba(124,58,237,.18)}',
-      '@media(max-width:900px){.lcos-home__content{padding:1em}.lcos-home__title{font-size:1.5em}.lcos-home__action{min-width:8.5em}}',
-      'body.lcos-performance .lcos-home__hero{background:#171122}',
+      '.lcos-home__card .card__img{width:100%;height:12.15em;object-fit:cover}',
+      '.lcos-home__card.focus .card__view,.lcos-home__card.hover .card__view{outline:2px solid #bd93ff;outline-offset:2px;box-shadow:0 0 0 3px rgba(124,58,237,.18)}',
+      '@media(max-width:1100px){.lcos-home__content{padding:1em}.lcos-home__grid{grid-template-columns:repeat(2,minmax(0,1fr))}.lcos-home__title{font-size:1.65em}}',
+      'body.lcos-performance .lcos-home__hero{background-color:#171122}',
       'body.lcos-performance .lcos-home__action.focus,body.lcos-performance .lcos-home__card.focus .card__view{box-shadow:none!important}'
     ].join('');
     document.head.appendChild(style);
