@@ -5,7 +5,7 @@
   'use strict';
 
   var ID = 'lampa_torrent_pro';
-  var VERSION = '1.6.0';
+  var VERSION = '1.6.1';
   var TITLE = 'Cinema OS';
 
   if (window.__ltp_loaded) return;
@@ -901,6 +901,7 @@
       addParam('ltp_region', 'input', 'Регион для «Где смотреть»', 'Код страны, например RU, UA, BY, KZ. По умолчанию RU.', 'RU');
       addParam('ltp_weather_enabled', 'trigger', 'Показывать погоду', 'Температура в шапке Lampa (Open-Meteo).', true);
       addParam('ltp_weather_city', 'input', 'Город для погоды', 'По умолчанию Белгород.', 'Белгород');
+      addParam('ltp_performance_mode', 'trigger', 'Режим производительности', 'Уменьшает анимации и тяжёлые эффекты для слабых телевизоров. Вступает в силу после перезапуска Lampa.', true);
     } catch (e) {
       console.error('[Lampa Torrent Pro] settings error:', e);
     }
@@ -911,6 +912,7 @@
   function mountNativeSkin() {
     if (!document.body) return;
     document.body.classList.add('lcos-native');
+    applyPerformanceMode();
     if (document.getElementById('lcos-native-skin')) return;
     var css = [
       'body.lcos-native{--lcos-bg:#09080f;--lcos-panel:#15121f;--lcos-panel-2:#211a30;--lcos-line:rgba(190,151,255,.18);--lcos-purple:#a875ff;--lcos-text:#f7f2ff;--lcos-muted:#a49ab5;background:var(--lcos-bg)!important;color:var(--lcos-text)}',
@@ -941,6 +943,33 @@
     var style = document.createElement('style');
     style.id = 'lcos-native-skin';
     style.textContent = css;
+    document.head.appendChild(style);
+  }
+
+  function performanceModeOn() {
+    var value = get('ltp_performance_mode', true);
+    return !(value === false || value === 'false' || value === 0 || value === '0');
+  }
+
+  function applyPerformanceMode() {
+    if (!document.body) return;
+    var enabled = performanceModeOn();
+    document.body.classList.toggle('lcos-performance', enabled);
+    var style = document.getElementById('lcos-performance-style');
+    if (!enabled) {
+      if (style && style.parentNode) style.parentNode.removeChild(style);
+      return;
+    }
+    if (style) return;
+    style = document.createElement('style');
+    style.id = 'lcos-performance-style';
+    style.textContent = [
+      'body.lcos-performance .menu__item,body.lcos-performance .card,body.lcos-performance .button,body.lcos-performance .selector{transition:none!important;animation:none!important}',
+      'body.lcos-performance .card.focus .card__view,body.lcos-performance .card.hover .card__view,body.lcos-performance .menu__item.focus,body.lcos-performance .menu__item.hover{box-shadow:none!important}',
+      'body.lcos-performance .card__view{filter:none!important}',
+      'body.lcos-performance .full-start__background{filter:none!important}',
+      'body.lcos-performance *{scroll-behavior:auto!important}'
+    ].join('\\n');
     document.head.appendChild(style);
   }
 
