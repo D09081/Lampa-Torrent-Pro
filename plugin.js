@@ -5,7 +5,7 @@
   'use strict';
 
   var ID = 'lampa_torrent_pro';
-  var VERSION = '1.3.0';
+  var VERSION = '1.4.0';
   var TITLE = 'Киноцентр';
 
   if (window.__ltp_loaded) return;
@@ -287,15 +287,23 @@
     return getJSON(Lampa.TMDB.api(type + '/' + movie.id + '/watch/providers')).then(function (d) {
       var r = d && d.results && d.results[region];
       var items = [];
+      var seen = {};
       if (r) {
         PROVIDER_GROUPS.forEach(function (g) {
           (r[g[0]] || []).forEach(function (p) {
-            items.push({ title: p.provider_name, subtitle: g[1] + ' • ' + region, ltp_provider: true, ltp_url: r.link || '' });
+            var key = String(p.provider_id || p.provider_name || '') + ':' + g[0];
+            if (seen[key]) return;
+            seen[key] = true;
+            items.push({
+              title: p.provider_name,
+              subtitle: g[1] + ' · ' + region + ' · доступность по данным TMDB',
+              ltp_provider_info: true
+            });
           });
         });
-        if (r.link) items.unshift({ title: 'Открыть доступные варианты на JustWatch', subtitle: 'Проверить сервисы и переходы для региона ' + region, ltp_url: r.link, ltp_provider: true });
+        items.sort(function (a, b) { return a.title.localeCompare(b.title, 'ru'); });
       }
-      return items;
+      return { items: items, link: r && r.link ? r.link : '' };
     }).catch(function () { return []; });
   }
 
@@ -311,17 +319,25 @@
     var region = (str('ltp_region') || 'RU').toUpperCase();
     var query = buildQuery(movie || {}).trim();
     try { Lampa.Loading.start(); } catch (_) {}
-    providerItems(movie, region).then(function (providers) {
+    providerItems(movie, region).then(function (result) {
       try { Lampa.Loading.stop(); } catch (_) {}
-      var items = providers.map(function (i) {
-        return { title: i.title, subtitle: i.subtitle, ltp_info: true, ltp_provider: i.ltp_provider, ltp_url: i.ltp_url || '' };
-      });
       var justwatch = 'https://www.justwatch.com/' + region.toLowerCase() + '/search?q=' + encodeURIComponent(query);
-      items.push({ title: 'Netflix и другие официальные сервисы', subtitle: 'Проверить доступность и открыть официальный сервис через JustWatch', ltp_provider: true, ltp_url: justwatch });
-      items.push({ title: 'Подключить онлайн-источники', subtitle: 'VideoDB, Showy, HDRezka, Kinogo и другие балансеры', ltp_open_plugins: true });
-      items.push({ title: 'Найти торрент-раздачи', subtitle: 'Поиск по названию этого фильма через Jackett и Internet Archive', ltp_search_torrents: true });
+      var items = [{
+        title: 'Открыть варианты просмотра для этого фильма',
+        subtitle: 'JustWatch · официальные сервисы, аренда и покупка · регион ' + region,
+        ltp_provider: true,
+        ltp_url: result.link || justwatch
+      }];
+      if (result.items.length) {
+        items.push({ title: 'Доступность по данным TMDB', subtitle: 'Ниже перечислены найденные сервисы. Нажмите первую строку, чтобы открыть варианты на JustWatch.' });
+        result.items.forEach(function (i) { items.push(i); });
+      } else {
+        items.push({ title: 'Список сервисов не получен', subtitle: 'TMDB не вернул данные для региона ' + region + '. Проверьте регион или откройте JustWatch.' });
+      }
+      items.push({ title: 'Онлайн-источники Lampa', subtitle: 'Подключить совместимые плагины: Online МОД, Showy, Cinema, Hermes', ltp_open_plugins: true });
+      items.push({ title: 'Поиск открытых раздач', subtitle: 'Internet Archive и ваш Jackett; для magnet обычно нужен TorrServer', ltp_search_torrents: true });
       Lampa.Select.show({
-        title: 'Где смотреть',
+        title: 'Где смотреть · ' + (movie.title || movie.name || query),
         items: items,
         onBack: function () { backTo(prev); },
         onSelect: function (a) {
@@ -329,6 +345,7 @@
           if (a.ltp_provider) return openExternal(a.ltp_url);
           if (a.ltp_open_plugins) return showOnlinePlugins(prev);
           if (a.ltp_search_torrents) return showTorrents(query, movie, prev);
+          if (a.ltp_provider_info) return notify(a.title + ': доступность указана агрегатором TMDB; переход к сервису доступен через JustWatch.');
         }
       });
     }).catch(function (e) {
