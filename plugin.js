@@ -5,7 +5,7 @@
   'use strict';
 
   var ID = 'lampa_torrent_pro';
-  var VERSION = '1.2.0';
+  var VERSION = '1.3.0';
   var TITLE = 'Киноцентр';
 
   if (window.__ltp_loaded) return;
@@ -350,6 +350,8 @@
 
   var BELGOROD = { name: 'Белгород', lat: 50.5997, lon: 36.5983 };
   var weatherCache = { at: 0, data: null, place: null, err: '', city: '' };
+  var weatherRequest = null;
+  var weatherRequestCity = '';
 
   var WMO = {
     0: ['☀', 'Ясно'], 1: ['🌤', 'Преимущественно ясно'], 2: ['⛅', 'Переменная облачность'], 3: ['☁', 'Пасмурно'],
@@ -477,28 +479,32 @@
 
   function loadWeather(force) {
     var city = weatherCity();
-    if (!force && weatherCache.data && weatherCache.city === city && Date.now() - weatherCache.at < 30 * 60 * 1000) {
-      return Promise.resolve(weatherCache.data);
-    }
+    if (!force && weatherCache.data && weatherCache.city === city && Date.now() - weatherCache.at < 30 * 60 * 1000) return Promise.resolve(weatherCache.data);
+    // Объединяем параллельные обращения шапки и меню в один запрос.
+    if (weatherRequest && weatherRequestCity === city) return weatherRequest;
     var errors = [];
-    return weatherOpenMeteo(city).catch(function (e) {
+    weatherRequestCity = city;
+    weatherRequest = weatherOpenMeteo(city).catch(function (e) {
       errors.push('Open-Meteo: ' + e.message);
       return weatherWttr(city).catch(function (w) {
         errors.push('wttr.in: ' + w.message);
         return weather7Timer(city);
       });
     }).then(function (data) {
-      weatherCache.at = Date.now();
-      weatherCache.data = data;
-      weatherCache.city = city;
-      weatherCache.err = '';
+      weatherCache.at = Date.now(); weatherCache.data = data; weatherCache.city = city; weatherCache.err = '';
       return data;
     }).catch(function (e) {
       weatherCache.err = errors.concat(['7Timer: ' + e.message]).join('; ');
       throw new Error(weatherCache.err);
+    }).then(function (data) {
+      if (weatherRequestCity === city) weatherRequest = null;
+      return data;
+    }, function (e) {
+      if (weatherRequestCity === city) weatherRequest = null;
+      throw e;
     });
+    return weatherRequest;
   }
-
   function weatherLabel(w) {
     return (w.icon ? w.icon + ' ' : '') + fmtTemp(w.temp);
   }
@@ -847,6 +853,8 @@
   }
 
   function start() {
+    if (window.__ltp_started) return;
+    window.__ltp_started = true;
     addStyle();
     addMenu();
     addWeatherMenu();
@@ -855,7 +863,8 @@
     addCardButton();
     loadSelectedOnlinePlugins();
     updateWeatherWidget();
-    setInterval(updateWeatherWidget, 30 * 60 * 1000);
+    if (window.__ltp_weather_timer) clearInterval(window.__ltp_weather_timer);
+    window.__ltp_weather_timer = setInterval(updateWeatherWidget, 30 * 60 * 1000);
 
     window.lampaTorrentPro = {
       version: VERSION,
