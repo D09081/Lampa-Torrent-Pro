@@ -5,7 +5,7 @@
   'use strict';
 
   var ID = 'lampa_torrent_pro';
-  var VERSION = '1.9.1';
+  var VERSION = '1.9.2';
   var TITLE = 'Cinema OS';
 
   if (window.__ltp_loaded) return;
@@ -999,12 +999,25 @@
       var node = card[0];
       var parent = node && node.parentNode;
       if (!node || !parent) return;
-      var left = node.offsetLeft;
-      var right = left + node.offsetWidth;
-      if (left < parent.scrollLeft) parent.scrollLeft = left;
-      else if (right > parent.scrollLeft + parent.clientWidth) parent.scrollLeft = right - parent.clientWidth;
+      // getBoundingClientRect корректнее offsetLeft для flex-полок на webOS.
+      try {
+        var nr = node.getBoundingClientRect();
+        var pr = parent.getBoundingClientRect();
+        var leftGap = nr.left - pr.left;
+        var rightGap = nr.right - pr.right;
+        if (leftGap < 8) parent.scrollLeft += leftGap - 16;
+        else if (rightGap > -8) parent.scrollLeft += rightGap + 16;
+      } catch (_) {
+        var left = node.offsetLeft;
+        var right = left + node.offsetWidth;
+        if (left < parent.scrollLeft) parent.scrollLeft = left;
+        else if (right > parent.scrollLeft + parent.clientWidth) parent.scrollLeft = right - parent.clientWidth;
+      }
     }
-    card.on('hover:focus focusin', keepCardVisible);
+    card.on('hover:focus focusin', function () {
+      // Класс выбранной карточки явно подсвечивается, даже в режиме высокой скорости.
+      keepCardVisible();
+    });
     card.on('hover:enter', function () {
       data.source = 'tmdb';
       if (Lampa.Router && Lampa.Router.call) Lampa.Router.call('full', data);
@@ -1197,10 +1210,16 @@
       '.lcos-home__card{width:8.1em;min-width:8.1em;flex:0 0 8.1em}',
       '.lcos-home__card .card__view{border-radius:.55em;overflow:hidden}',
       '.lcos-home__card .card__img{width:100%;height:12.15em;object-fit:cover}',
-      '.lcos-home__card.focus .card__view,.lcos-home__card.hover .card__view{outline:2px solid #bd93ff;outline-offset:2px;box-shadow:0 0 0 3px rgba(124,58,237,.18)}',
+      '.lcos-home__card.focus,.lcos-home__card.hover{position:relative;z-index:8;outline:3px solid #d8b8ff!important;outline-offset:3px;transform:scale(1.045);background:rgba(111,54,171,.16);border-radius:.65em}',
+      '.lcos-home__card.focus:before,.lcos-home__card.hover:before{content:"ВЫБРАНО";position:absolute;left:.28em;top:.28em;z-index:6;padding:.24em .42em;border-radius:.28em;background:#7541b5;color:#fff;font-size:.48em;font-weight:900;letter-spacing:.08em;pointer-events:none}',
+      '.lcos-home__card.focus .card__view,.lcos-home__card.hover .card__view{outline:2px solid #e3caff;outline-offset:1px;box-shadow:0 0 0 3px rgba(124,58,237,.38)}',
+      '.lcos-home__card.focus .card__title,.lcos-home__card.hover .card__title{color:#e4caff;font-weight:900}',
+      '.lcos-home__card.focus .card__img,.lcos-home__card.hover .card__img{filter:brightness(1.08)}',
       '@media(max-width:1100px){.lcos-home__content{padding:1em}.lcos-home__grid{grid-template-columns:repeat(2,minmax(0,1fr))}.lcos-home__title{font-size:1.65em}}',
       'body.lcos-performance .lcos-home__hero{background-color:#171122}',
-      'body.lcos-performance .lcos-home__action.focus,body.lcos-performance .lcos-home__card.focus .card__view{box-shadow:none!important}'
+      'body.lcos-performance .lcos-home__action.focus{box-shadow:none!important}',
+      'body.lcos-performance .lcos-home__card.focus,body.lcos-performance .lcos-home__card.hover{outline:3px solid #e0c4ff!important;outline-offset:3px;transform:scale(1.035);z-index:8}',
+      'body.lcos-performance .lcos-home__card.focus .card__view,body.lcos-performance .lcos-home__card.hover .card__view{box-shadow:none!important}'
     ].join('');
     document.head.appendChild(style);
   }
