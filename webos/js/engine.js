@@ -17,7 +17,7 @@ var events={
  off:function(name,fn){var a=listeners[name]||[],i;for(i=a.length-1;i>=0;i--)if(a[i]===fn)a.splice(i,1);},
  emit:function(name,data){var a=(listeners[name]||[]).slice(0),i;for(i=0;i<a.length;i++){try{a[i](data);}catch(e){}}}
 };
-function normalize(item){if(!item||!item.id||!item.title)return null;return {id:String(item.id),title:String(item.title),year:item.year||'',kind:item.kind||'Фильм',genre:item.genre||'',rating:item.rating||'',poster:item.poster||'',description:item.description||item.desc||'',url:item.url||'',provider:item.provider||'',raw:item.raw||null};}
+function normalize(item){if(!item||!item.id||!item.title)return null;return {id:String(item.id),title:String(item.title),year:item.year||'',kind:item.kind||'Фильм',genre:item.genre||'',rating:item.rating||'',poster:item.poster||'',description:item.description||item.desc||'',url:item.url||'',provider:item.provider||'',kpId:item.kpId||item.kinopoiskId||'',imdbId:item.imdbId||'',filmixId:item.filmixId||'',raw:item.raw||null};}
 var catalog={
  normalize:normalize,
  merge:function(base,extra){var out=[],seen={},i,m;for(i=0;i<(base||[]).length;i++){m=normalize(base[i]);if(m&&!seen[m.id]){seen[m.id]=1;out.push(m);}}for(i=0;i<(extra||[]).length;i++){m=normalize(extra[i]);if(m&&!seen[m.id]){seen[m.id]=1;out.push(m);}}return out;},
