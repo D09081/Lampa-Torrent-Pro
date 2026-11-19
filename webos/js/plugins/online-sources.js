@@ -101,7 +101,7 @@ var plugin={
  activate:function(api){
   api.sources.register({id:'online-rezka',name:'HDRezka',enabled:true,capabilities:['title-search','direct-stream'],search:rezkaSearch,resolve:rezkaResolve});
   api.sources.register({id:'online-filmix',name:'Filmix',enabled:true,capabilities:['title-search','account-token','direct-stream'],search:filmixSearch,resolve:filmixResolve});
-  api.sources.register({id:'online-collaps',name:'Collaps',enabled:true,capabilities:['kp-id','imdb-id','direct-stream'],search:function(q,cb){cb(null,[]);},resolve:collapsResolve});
+  api.sources.register({id:'online-collaps',name:'Collaps',enabled:true,capabilities:['kp-id','imdb-id','direct-stream'],search:function(q,cb,context){if(context&&(context.kpId||context.kinopoiskId||context.imdbId)){cb(null,[{id:'collaps_'+(context.kpId||context.kinopoiskId||context.imdbId),title:q,provider:'online-collaps',source:'Collaps',kind:'online',kpId:context.kpId||context.kinopoiskId,imdbId:context.imdbId}]);}else cb(null,[]);},resolve:collapsResolve});
  },
  configure:function(values){var old=cfg(),next={},k;for(k in old)next[k]=old[k];for(k in values)next[k]=values[k];Engine.storage.set(PREFIX+'config',next);return next;},
  settings:cfg,
