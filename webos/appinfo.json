@@ -1,6 +1,14 @@
 {
-  "id":"com.d09081.cinemaos","version":"0.2.0","vendor":"D09081","type":"web",
-  "main":"index.html","title":"Cinema OS","icon":"icon.png","largeIcon":"largeIcon.png",
-  "iconColor":"#090611","bgColor":"#090611",
-  "appDescription":"Cinema OS — personal media center for LG webOS","resolution":"1280x720"
+  "id": "com.d09081.cinemaos",
+  "version": "0.3.0",
+  "vendor": "D09081",
+  "type": "web",
+  "main": "index.html",
+  "title": "Cinema OS",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "iconColor": "#090611",
+  "bgColor": "#090611",
+  "appDescription": "Cinema OS — personal media center for LG webOS",
+  "resolution": "1280x720"
 }
