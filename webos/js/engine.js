@@ -1,5 +1,10 @@
 (function(global){
 'use strict';
+if(!global.Promise){
+function MiniPromise(executor){var self=this;self.state=0;self.value=null;self.handlers=[];function settle(state,value){if(self.state)return;if(value&&typeof value.then==='function'){value.then(function(v){settle(1,v);},function(e){settle(2,e);});return;}self.state=state;self.value=value;setTimeout(function(){var h=self.handlers.slice(0);self.handlers=[];for(var i=0;i<h.length;i++)run(h[i]);},0);}function run(h){var cb=self.state===1?h.ok:h.fail;if(typeof cb!=='function'){(self.state===1?h.resolve:h.reject)(self.value);return;}try{h.resolve(cb(self.value));}catch(e){h.reject(e);}}self.then=function(ok,fail){return new MiniPromise(function(resolve,reject){var h={ok:ok,fail:fail,resolve:resolve,reject:reject};if(self.state)setTimeout(function(){run(h);},0);else self.handlers.push(h);});};self['catch']=function(fail){return self.then(null,fail);};try{executor(function(v){settle(1,v);},function(e){settle(2,e);});}catch(e){settle(2,e);}}
+global.Promise=MiniPromise;
+}
+
 var VERSION='1.0.0', PREFIX='cos_engine_', providers={}, plugins={}, listeners={};
 function parse(v,fallback){try{return JSON.parse(v);}catch(e){return fallback;}}
 var storage={
@@ -28,7 +33,7 @@ var sources={
  resolve:function(providerId,item,callback){var p=providers[providerId];if(!p||typeof p.resolve!=='function'){callback(new Error('Источник не поддерживает разрешение ссылок'));return;}try{p.resolve(item,callback);}catch(e){callback(e);}}
 };
 var playback={
- canPlayUrl:function(url){return /^https?:\\/\\//i.test(String(url||''));},
+ canPlayUrl:function(url){url=String(url||'').toLowerCase();return url.indexOf('http://')===0||url.indexOf('https://')===0;},
  remember:function(id,position,duration){var h=storage.get('history',[]),out=[{id:String(id),position:Number(position)||0,duration:Number(duration)||0,updated:(new Date()).getTime()}],i;for(i=0;i<h.length;i++)if(String(h[i].id)!==String(id))out.push(h[i]);storage.set('history',out.slice(0,50));events.emit('history:changed',out);},
  history:function(){return storage.get('history',[]);},
  clearHistory:function(){storage.set('history',[]);events.emit('history:changed',[]);}
