@@ -33,3 +33,12 @@ The sample home catalogue is demo metadata and has no bundled streams. User-adde
 
 ## Build
 GitHub Actions workflow packages webos/ into an IPK and uploads the artifact.
+
+
+## Native online adapters (0.8.0)
+- `js/plugins/online-sources.js` adds native CinemaEngine providers for HDRezka, Filmix and Collaps. These are independent adapters; the original Lampa plugin is not copied wholesale.
+- HDRezka: title search and movie stream resolution are attempted through its public page/AJAX flow. Series season/episode selection is not yet implemented.
+- Filmix: title suggestions are queried. Stream resolution requires a token belonging to the user's own account; no embedded credentials are included.
+- Collaps: lookup requires a Kinopoisk numeric ID or IMDb ID on the movie record. The Add Video screen can create a title-only record and store either ID.
+- Browser-origin CORS, mirror challenges, site-side authentication, and codec support can prevent direct playback. No private proxy credentials, DRM circumvention, or mandatory user server is included.
+- The adapters are experimental and must be tested on the target LG webOS device; source registration does not guarantee that a provider is reachable from the TV.
