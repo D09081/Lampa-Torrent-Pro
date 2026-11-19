@@ -1,6 +1,6 @@
 {
   "id": "com.d09081.cinemaos",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "vendor": "D09081",
   "type": "web",
   "main": "index.html",
@@ -9,6 +9,6 @@
   "largeIcon": "largeIcon.png",
   "iconColor": "#090611",
   "bgColor": "#090611",
-  "appDescription": "Cinema OS — personal media center for LG webOS",
+  "appDescription": "Cinema OS — family movie catalogue and built-in HTML5 player",
   "resolution": "1280x720"
 }
