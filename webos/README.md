@@ -1,6 +1,12 @@
-# Cinema OS 0.5.0 — family cinema MVP
+# Cinema OS 0.6.0 — family cinema MVP
 
 Target: LG 42LB673V-ZB, webOS 1.4.0, ARMv7.
+
+## Cinema Engine core
+- ES5-compatible runtime loaded before the UI, including a Promise fallback for older WebKit.
+- Catalog normalization, merge and search; local storage; event bus; plugin registry; source-provider registry; playback history API.
+- Source adapters register through `CinemaEngine.sources.register()` and expose callback-based `search` and `resolve` methods.
+- Internet Archive is registered as the first adapter. It is not a Lampa plug-in and does not make Online MOD, Showy or Hermes compatible.
 
 ## Included
 - TV-friendly, aligned catalogue, movie details, favourites, search and local collection.
