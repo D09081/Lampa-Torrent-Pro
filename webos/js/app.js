@@ -1,6 +1,8 @@
 (function(){
 'use strict';
-var root=document.getElementById('screen'),page='home',backPage='home',items=[],focus=[],fi=0,activeProfile='Вся семья',noticeTimer=null,player=null,currentMovieId='',whereResults=[];\nvar Engine=window.CinemaEngine;\nfunction getJSON(url,timeout){return new Promise(function(resolve,reject){var xhr=new XMLHttpRequest(),done=false,t=setTimeout(function(){if(!done){done=true;try{xhr.abort();}catch(e){}reject(new Error('Превышено время ожидания источника'));}},timeout||15000);xhr.onreadystatechange=function(){if(xhr.readyState===4&&!done){done=true;clearTimeout(t);if(xhr.status>=200&&xhr.status<300){try{resolve(JSON.parse(xhr.responseText));}catch(e){reject(new Error('Источник вернул некорректный ответ'));}}else reject(new Error('Ошибка сети: HTTP '+xhr.status));}};xhr.onerror=function(){if(!done){done=true;clearTimeout(t);reject(new Error('Не удалось подключиться к источнику'));}};try{xhr.open('GET',url,true);xhr.send(null);}catch(e){clearTimeout(t);reject(e);}});}
+var root=document.getElementById('screen'),page='home',backPage='home',items=[],focus=[],fi=0,activeProfile='Вся семья',noticeTimer=null,player=null,currentMovieId='',whereResults=[];
+var Engine=window.CinemaEngine;
+function getJSON(url,timeout){return new Promise(function(resolve,reject){var xhr=new XMLHttpRequest(),done=false,t=setTimeout(function(){if(!done){done=true;try{xhr.abort();}catch(e){}reject(new Error('Превышено время ожидания источника'));}},timeout||15000);xhr.onreadystatechange=function(){if(xhr.readyState===4&&!done){done=true;clearTimeout(t);if(xhr.status>=200&&xhr.status<300){try{resolve(JSON.parse(xhr.responseText));}catch(e){reject(new Error('Источник вернул некорректный ответ'));}}else reject(new Error('Ошибка сети: HTTP '+xhr.status));}};xhr.onerror=function(){if(!done){done=true;clearTimeout(t);reject(new Error('Не удалось подключиться к источнику'));}};try{xhr.open('GET',url,true);xhr.send(null);}catch(e){clearTimeout(t);reject(e);}});}
 var profiles=['Вся семья','Взрослые','Дети'];
 var demo=[
 {id:'dune2',title:'Дюна: Часть вторая',year:'2024',kind:'Фильм',genre:'Фантастика',rating:'8.5',desc:'Продолжение истории Пола Атрейдеса. Добавьте собственную ссылку на видео, чтобы смотреть его во встроенном плеере.',color:'sand'},
@@ -14,14 +16,14 @@ var demo=[
 ];
 function read(k,d){try{var v=localStorage.getItem('cos04_'+k);return v?JSON.parse(v):d;}catch(e){return d;}}
 function write(k,v){try{localStorage.setItem('cos04_'+k,JSON.stringify(v));}catch(e){}}
-function all(){return demo.concat(read('videos',[]));}
+function all(){return Engine?Engine.catalog.merge(demo,read('videos',[])):demo.concat(read('videos',[]));}
 function byId(id){var a=all(),i;for(i=0;i<a.length;i++)if(a[i].id===id)return a[i];return null;}
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function favs(){return read('favs',[]);}
 function isFav(id){return favs().indexOf(id)>=0;}
 function toggleFav(id){var a=favs(),i=a.indexOf(id);if(i<0)a.push(id);else a.splice(i,1);write('favs',a);}
 function history(){return read('history',[]);}
-function saveHistory(id,pos,duration){var a=history(),n={id:id,pos:pos||0,duration:duration||0};var out=[n],i;for(i=0;i<a.length;i++)if(a[i].id!==id)out.push(a[i]);write('history',out.slice(0,30));}
+function saveHistory(id,pos,duration){var a=history(),n={id:id,pos:pos||0,duration:duration||0};var out=[n],i;for(i=0;i<a.length;i++)if(a[i].id!==id)out.push(a[i]);write('history',out.slice(0,30));if(Engine)Engine.playback.remember(id,pos,duration);}
 function msg(t){var n=document.getElementById('toast');if(!n){n=document.createElement('div');n.id='toast';document.getElementById('app').appendChild(n);}n.innerHTML=esc(t);n.style.display='block';if(noticeTimer)clearTimeout(noticeTimer);noticeTimer=setTimeout(function(){n.style.display='none';},2800);}
 function card(m){var tag=m.kind==='Сериал'?'СЕРИАЛ':m.kind==='Мультфильм'?'МУЛЬТФИЛЬМ':'ФИЛЬМ';var art=m.poster?'<img class="poster-img" src="'+esc(m.poster)+'">':'<span class="poster-fallback '+esc(m.color||'custom')+'"><i>'+esc(tag)+'</i><b>'+esc(m.title)+'</b><em>★ '+esc(m.rating||'—')+'</em></span>';return '<button class="movie" data-id="'+esc(m.id)+'"><span class="poster">'+art+'</span><span class="movie-title">'+esc(m.title)+'</span><small>'+esc(m.year)+' · '+esc(m.genre)+'</small></button>';}
 function row(title,arr,sub){if(!arr.length)return '';var h='<section class="shelf"><div class="shelf-head"><h2>'+esc(title)+'</h2><span>'+esc(sub||'')+'</span></div><div class="movie-row">';for(var i=0;i<arr.length;i++)h+=card(arr[i]);return h+'</div></section>';}
@@ -52,25 +54,26 @@ return {name:x.name,size:Number(x.size)||0,rank:rank[ext]===undefined?9:rank[ext
 }).sort(function(a,b){return a.rank-b.rank||a.name.localeCompare(b.name);});
 });
 }
+if(Engine){Engine.sources.register({id:'internet-archive',name:'Internet Archive',enabled:true,capabilities:['search','direct-file'],search:function(query,callback){iaSearch(query).then(function(items){callback(null,items);}).catch(function(err){callback(err,[]);});},resolve:function(item,callback){iaFiles(item).then(function(files){callback(null,files);}).catch(function(err){callback(err,[]);});}});}
 function showWhere(id){
 var m=byId(id);if(!m)return;currentMovieId=id;
 root.innerHTML=top('Где смотреть','Ищем доступные варианты для «'+m.title+'»…')+'<div class="loading-panel">Проверяем Internet Archive…</div><button class="secondary" data-action="back-detail">← К карточке</button>';collect();
-iaSearch(m.title).then(function(list){
+Engine.sources.search(m.title,function(searchError,list){if(searchError&&!list.length){root.innerHTML=top('Где смотреть','Источник временно недоступен')+'<div class="info-card"><p>'+esc(searchError.message)+'</p></div><button class="secondary" data-action="back-detail">← Назад</button>';collect();return;}
 whereResults=list;var h=top('Где смотреть',list.length?'Найдены варианты в Internet Archive. Проверьте права на конкретную публикацию.':'Совпадений не найдено.');
 if(list.length){h+='<div class="source-grid">';for(var i=0;i<list.length;i++)h+='<button class="source-result" data-ia="'+i+'"><img src="'+esc(list[i].poster)+'"><span><b>'+esc(list[i].title)+'</b><small>'+esc(list[i].year)+' · Internet Archive</small><em>Проверить видеофайлы →</em></span></button>';h+='</div>';}else h+='<div class="empty">Совпадений не найдено. Можно добавить свою ссылку.</div>';
 h+='<button class="secondary" data-action="back-detail">← К карточке</button><button class="secondary" data-page="add">Добавить свою ссылку</button>';root.innerHTML=h;collect();
-}).catch(function(e){root.innerHTML=top('Где смотреть','Источник временно недоступен')+'<div class="info-card"><p>'+esc(e.message)+'</p></div><button class="secondary" data-action="back-detail">← Назад</button>';collect();});
+});
 }
 function chooseIA(index){
 var item=whereResults[index];if(!item)return;
 root.innerHTML=top('Проверяем источник',item.title)+'<div class="loading-panel">Загружаем список файлов…</div>';collect();
-iaFiles(item).then(function(files){
+Engine.sources.resolve('internet-archive',item,function(resolveError,files){if(resolveError){root.innerHTML=top('Источник недоступен',resolveError.message)+'<button class="secondary" data-action="back-where">← Назад</button>';collect();return;}
 whereResults.files=files;
 if(!files.length){root.innerHTML=top(item.title,'Подходящие видеофайлы не найдены')+'<button class="secondary" data-action="back-where">← Назад</button>';collect();return;}
 var h=top('Выберите файл',item.title)+'<div class="source-grid">';
 for(var i=0;i<files.length;i++)h+='<button class="file-result" data-file="'+i+'"><b>'+esc(files[i].name)+'</b><small>'+(files[i].size/1048576).toFixed(1)+' МБ</small><em>▶ Смотреть</em></button>';
 h+='</div><button class="secondary" data-action="back-where">← Назад к результатам</button>';root.innerHTML=h;collect();
-}).catch(function(e){root.innerHTML=top('Источник недоступен',e.message)+'<button class="secondary" data-action="back-where">← Назад</button>';collect();});
+});
 }
 function playIA(index){
 var file=whereResults.files&&whereResults.files[index],m=byId(currentMovieId);if(!file||!m)return;
