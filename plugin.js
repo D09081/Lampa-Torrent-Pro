@@ -5,7 +5,7 @@
   'use strict';
 
   var ID = 'lampa_torrent_pro';
-  var VERSION = '1.9.2';
+  var VERSION = '1.9.3';
   var TITLE = 'Cinema OS';
 
   if (window.__ltp_loaded) return;
@@ -1195,6 +1195,13 @@
       '.lcos-home__action-title{font-weight:750;color:#fff;font-size:.9em}',
       '.lcos-home__action-sub{font-size:.68em;color:#b7abc9;margin-top:.25em}',
       '.lcos-home__nav{margin:1em 0 1.25em;padding-bottom:1em;border-bottom:1px solid rgba(190,151,255,.13)}',
+      '.lcos-home__content{padding:1.15em 2.1em 3em 15em}',
+      '.lcos-home__nav{position:fixed;z-index:20;left:1.25em;top:5.2em;bottom:1.25em;width:11.5em;display:flex;flex-direction:column;flex-wrap:nowrap;gap:.48em;overflow-y:auto;overflow-x:hidden;padding:.7em .65em;border-right:1px solid rgba(190,151,255,.2);background:linear-gradient(180deg,rgba(14,10,23,.97),rgba(9,8,15,.94));border-radius:.9em;box-sizing:border-box}',
+      '.lcos-home__nav .lcos-home__action{width:100%;min-width:0;min-height:3.25em;padding:.65em .8em;background:rgba(255,255,255,.035)}',
+      '.lcos-home__nav .lcos-home__action-title{font-size:.86em}',
+      '.lcos-home__nav .lcos-home__action-sub{font-size:.62em}',
+      '.lcos-home__hero{min-height:13.5em}',
+      '@media(max-width:900px){.lcos-home__content{padding:1em}.lcos-home__nav{position:relative;left:auto;top:auto;bottom:auto;width:auto;flex-direction:row;flex-wrap:wrap;border-right:0;border-bottom:1px solid rgba(190,151,255,.13);background:transparent}.lcos-home__nav .lcos-home__action{width:auto;min-width:7.2em}}',
       '.lcos-home__nav .lcos-home__action{min-width:7.2em;min-height:3.1em;background:#15111f}',
       '.lcos-home__section{margin:1.25em 0}',
       '.lcos-home__section-title{font-size:.7em;font-weight:800;letter-spacing:.18em;color:#a98bcf;margin:1.2em 0 .7em}',
