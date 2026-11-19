@@ -1,4 +1,4 @@
-# Cinema OS 0.6.0 — family cinema MVP
+# Cinema OS 0.7.0 — family cinema MVP
 
 Target: LG 42LB673V-ZB, webOS 1.4.0, ARMv7.
 
@@ -7,6 +7,13 @@ Target: LG 42LB673V-ZB, webOS 1.4.0, ARMv7.
 - Catalog normalization, merge and search; local storage; event bus; plugin registry; source-provider registry; playback history API.
 - Source adapters register through `CinemaEngine.sources.register()` and expose callback-based `search` and `resolve` methods.
 - Internet Archive is registered as the first adapter. It is not a Lampa plug-in and does not make Online MOD, Showy or Hermes compatible.
+
+## Lampa Torrent Pro port
+- Original repository plugin `plugin.js` (Lampa Torrent Pro 1.9.2) is ported as `js/plugins/lampa-torrent-pro.js` and registered through CinemaEngine Plugin API.
+- Internet Archive search and direct-file resolution are available as a source adapter.
+- Jackett adapter is configurable in Cinema OS settings (server URL and API key); torrent results are shown with seeder/size metadata. Magnet playback is not implemented until a TorrServer adapter is added.
+- Quality/audio preference ranking and JustWatch region configuration are retained.
+- Online MOD, Showy, Hermes Movie and Online Cinema URLs are listed as legacy Lampa integrations only. They are not executed in standalone Cinema OS because they depend on Lampa APIs; each requires a compatible native adapter or a Lampa runtime.
 
 ## Included
 - TV-friendly, aligned catalogue, movie details, favourites, search and local collection.
