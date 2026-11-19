@@ -2,6 +2,13 @@
 
 Target: LG 42LB673V-ZB, firmware 05.05.90, SDK 1.4.0, ARMv7.
 
+## Version 0.3.0
+
+- Live weather widget on the home screen using Open-Meteo.
+- Dedicated weather page with current conditions and a three-day forecast.
+- City selection via Open-Meteo geocoding; default city is Belgorod.
+- Weather requests use XMLHttpRequest for legacy WebKit compatibility.
+
 ## Version 0.2.0
 
 - TV-first cyber interface for 1280x720.
