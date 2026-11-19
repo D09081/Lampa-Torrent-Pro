@@ -73,6 +73,7 @@ jobs:
       - name: Validate JavaScript syntax
         run: |
           node --check webos/js/engine.js
+          node --check webos/js/plugins/lampa-torrent-pro.js
           node --check webos/js/app.js
 
       - name: Install webOS CLI
