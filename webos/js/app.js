@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-var root=document.getElementById('screen'),page='home',backPage='home',items=[],focus=[],fi=0,activeProfile='Вся семья',noticeTimer=null,player=null,currentMovieId='';
+var root=document.getElementById('screen'),page='home',backPage='home',items=[],focus=[],fi=0,activeProfile='Вся семья',noticeTimer=null,player=null,currentMovieId='',whereResults=[];\nvar Engine=window.CinemaEngine;\nfunction getJSON(url,timeout){return new Promise(function(resolve,reject){var xhr=new XMLHttpRequest(),done=false,t=setTimeout(function(){if(!done){done=true;try{xhr.abort();}catch(e){}reject(new Error('Превышено время ожидания источника'));}},timeout||15000);xhr.onreadystatechange=function(){if(xhr.readyState===4&&!done){done=true;clearTimeout(t);if(xhr.status>=200&&xhr.status<300){try{resolve(JSON.parse(xhr.responseText));}catch(e){reject(new Error('Источник вернул некорректный ответ'));}}else reject(new Error('Ошибка сети: HTTP '+xhr.status));}};xhr.onerror=function(){if(!done){done=true;clearTimeout(t);reject(new Error('Не удалось подключиться к источнику'));}};try{xhr.open('GET',url,true);xhr.send(null);}catch(e){clearTimeout(t);reject(e);}});}
 var profiles=['Вся семья','Взрослые','Дети'];
 var demo=[
 {id:'dune2',title:'Дюна: Часть вторая',year:'2024',kind:'Фильм',genre:'Фантастика',rating:'8.5',desc:'Продолжение истории Пола Атрейдеса. Добавьте собственную ссылку на видео, чтобы смотреть его во встроенном плеере.',color:'sand'},
