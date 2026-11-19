@@ -74,6 +74,7 @@ jobs:
         run: |
           node --check webos/js/engine.js
           node --check webos/js/plugins/lampa-torrent-pro.js
+          node --check webos/js/plugins/online-sources.js
           node --check webos/js/app.js
 
       - name: Install webOS CLI
