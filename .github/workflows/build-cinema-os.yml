@@ -66,8 +66,14 @@ jobs:
                   assert (root / app[key]).is_file(), f"Missing app resource: {app[key]}"
           assert (root / "css/app.css").is_file()
           assert (root / "js/app.js").is_file()
+          assert (root / "js/engine.js").is_file()
           print("Manifest and app resources OK:", app["id"], app["version"])
           PY
+
+      - name: Validate JavaScript syntax
+        run: |
+          node --check webos/js/engine.js
+          node --check webos/js/app.js
 
       - name: Install webOS CLI
         run: npm install --global @webos-tools/cli@3.2.6
