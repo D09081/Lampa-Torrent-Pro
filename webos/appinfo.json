@@ -1,0 +1,14 @@
+{
+  "id": "com.d09081.cinemaos",
+  "version": "0.1.0",
+  "vendor": "D09081",
+  "type": "web",
+  "main": "index.html",
+  "title": "Cinema OS",
+  "icon": "icon.png",
+  "largeIcon": "icon.png",
+  "iconColor": "#090611",
+  "bgColor": "#090611",
+  "appDescription": "Cinema OS for LG webOS 1.4.0",
+  "resolution": "1280x720"
+}
