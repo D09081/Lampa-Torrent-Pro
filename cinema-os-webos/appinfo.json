@@ -1,0 +1,10 @@
+{
+  "id": "com.d09081.cinemaos",
+  "version": "0.1.0",
+  "vendor": "D09081",
+  "type": "web",
+  "main": "index.html",
+  "title": "Cinema OS",
+  "icon": "icon.png",
+  "resolution": "1920x1080"
+}
