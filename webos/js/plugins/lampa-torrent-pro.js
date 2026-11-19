@@ -5,7 +5,8 @@ if(!Engine||global.LampaTorrentPro)return;
 var PREFIX='ltp_';
 var legacyPlugins=[
 {id:'online_mod',name:'Онлайн МОД',url:'https://nb557.github.io/plugins/online_mod.js',runtime:'Lampa'},
-{id:'showy',name:'Showy',url:'http://showy.online/m.js',runtime:'Lampa'},
+{id:'showy',name:'Showy',url:'http://showy.online/m.js',runtime:'Lampa',includes:['videodb','videocdn','hdvb','kinotochka','redheadsound']},
+{id:'videodb',name:'VideoDB (через Showy)',url:'',runtime:'Showy/Lampa',requires:['showy-activation','lampa-runtime'],standalone:false},
 {id:'online_cinema',name:'Онлайн Cinema',url:'https://bylampa.github.io/cinema.js',runtime:'Lampa'},
 {id:'hermes_movie',name:'Hermes Movie',url:'https://asimut.github.io/l/b.js',runtime:'Lampa'}
 ];
