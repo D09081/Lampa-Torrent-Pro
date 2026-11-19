@@ -1,0 +1,248 @@
+{
+  "name": "Cinema OS Launcher",
+  "version": "0.1.0",
+  "style": "overlay-separator",
+  "transparent": 2,
+  "background": "https://msx.benzac.de/media/wallpaper1.jpg",
+  "headline": "CINEMA OS",
+  "menu": [
+    {
+      "icon": "home",
+      "label": "Главная",
+      "data": {
+        "headline": "CINEMA OS",
+        "background": "https://msx.benzac.de/media/wallpaper1.jpg",
+        "pages": [
+          {
+            "items": [
+              {
+                "layout": "0,0,12,2",
+                "color": "msx-glass",
+                "headline": "CINEMA OS",
+                "text": "CYBER HYBRID  •  MEDIA STATION X  •  BUILD 0.1.0"
+              },
+              {
+                "layout": "0,2,6,3",
+                "color": "msx-glass",
+                "headline": "Единый киноцентр",
+                "text": "Фильмы, сериалы и подключаемые источники в одной оболочке."
+              },
+              {
+                "layout": "6,2,6,3",
+                "color": "msx-glass",
+                "headline": "Управление пультом",
+                "text": "Навигация по меню и карточкам с помощью стрелок и кнопки OK."
+              },
+              {
+                "layout": "0,5,4,2",
+                "color": "msx-glass",
+                "headline": "КАТАЛОГ",
+                "text": "Разделы фильмов и сериалов"
+              },
+              {
+                "layout": "4,5,4,2",
+                "color": "msx-glass",
+                "headline": "АДАПТЕРЫ",
+                "text": "Подключаемые источники просмотра"
+              },
+              {
+                "layout": "8,5,4,2",
+                "color": "msx-glass",
+                "headline": "ЛОКАЛЬНЫЕ ДАННЫЕ",
+                "text": "Избранное и история — следующий этап"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "icon": "movie",
+      "label": "Фильмы",
+      "data": {
+        "headline": "ФИЛЬМЫ",
+        "background": "https://msx.benzac.de/media/wallpaper1.jpg",
+        "pages": [
+          {
+            "items": [
+              {
+                "layout": "0,0,12,2",
+                "color": "msx-glass",
+                "headline": "ФИЛЬМЫ",
+                "text": "РАЗДЕЛ В РАЗРАБОТКЕ • CINEMA OS"
+              },
+              {
+                "layout": "0,2,6,3",
+                "color": "msx-glass",
+                "headline": "Каталог",
+                "text": "Единый поиск и подборки появятся после подключения каталожного адаптера."
+              },
+              {
+                "layout": "6,2,6,3",
+                "color": "msx-glass",
+                "headline": "Поиск",
+                "text": "Поиск по названию и году — следующий этап."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "icon": "tv",
+      "label": "Сериалы",
+      "data": {
+        "headline": "СЕРИАЛЫ",
+        "background": "https://msx.benzac.de/media/wallpaper1.jpg",
+        "pages": [
+          {
+            "items": [
+              {
+                "layout": "0,0,12,2",
+                "color": "msx-glass",
+                "headline": "СЕРИАЛЫ",
+                "text": "РАЗДЕЛ В РАЗРАБОТКЕ • CINEMA OS"
+              },
+              {
+                "layout": "0,2,6,3",
+                "color": "msx-glass",
+                "headline": "Сериалы",
+                "text": "Каталог сериалов и сезонов — следующий этап."
+              },
+              {
+                "layout": "6,2,6,3",
+                "color": "msx-glass",
+                "headline": "Продолжить",
+                "text": "Возврат к последнему просмотру — следующий этап."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "type": "separator",
+      "label": "ИСТОЧНИКИ"
+    },
+    {
+      "icon": "apps",
+      "label": "Адаптеры",
+      "data": {
+        "headline": "ADAPTER HUB",
+        "background": "https://msx.benzac.de/media/wallpaper1.jpg",
+        "pages": [
+          {
+            "items": [
+              {
+                "layout": "0,0,12,2",
+                "color": "msx-glass",
+                "headline": "ADAPTER HUB",
+                "text": "РАЗДЕЛ В РАЗРАБОТКЕ • CINEMA OS"
+              },
+              {
+                "layout": "0,2,6,3",
+                "color": "msx-glass",
+                "headline": "VideoDB",
+                "text": "Интеграция будет добавлена после проверки API адаптера."
+              },
+              {
+                "layout": "6,2,6,3",
+                "color": "msx-glass",
+                "headline": "HDRezka / Showy / Kungo",
+                "text": "Подключение через отдельные совместимые адаптеры."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "icon": "favorite",
+      "label": "Избранное",
+      "data": {
+        "headline": "ИЗБРАННОЕ",
+        "background": "https://msx.benzac.de/media/wallpaper1.jpg",
+        "pages": [
+          {
+            "items": [
+              {
+                "layout": "0,0,12,2",
+                "color": "msx-glass",
+                "headline": "ИЗБРАННОЕ",
+                "text": "РАЗДЕЛ В РАЗРАБОТКЕ • CINEMA OS"
+              },
+              {
+                "layout": "0,2,6,3",
+                "color": "msx-glass",
+                "headline": "Моя коллекция",
+                "text": "Локальное сохранение избранного будет добавлено следующим этапом."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "icon": "history",
+      "label": "История",
+      "data": {
+        "headline": "ИСТОРИЯ",
+        "background": "https://msx.benzac.de/media/wallpaper1.jpg",
+        "pages": [
+          {
+            "items": [
+              {
+                "layout": "0,0,12,2",
+                "color": "msx-glass",
+                "headline": "ИСТОРИЯ",
+                "text": "РАЗДЕЛ В РАЗРАБОТКЕ • CINEMA OS"
+              },
+              {
+                "layout": "0,2,6,3",
+                "color": "msx-glass",
+                "headline": "Продолжить просмотр",
+                "text": "История и позиции воспроизведения будут подключены вместе с плеером."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "type": "separator",
+      "label": "СИСТЕМА"
+    },
+    {
+      "icon": "settings",
+      "label": "Настройки",
+      "data": {
+        "headline": "НАСТРОЙКИ",
+        "background": "https://msx.benzac.de/media/wallpaper1.jpg",
+        "pages": [
+          {
+            "items": [
+              {
+                "layout": "0,0,12,2",
+                "color": "msx-glass",
+                "headline": "НАСТРОЙКИ",
+                "text": "РАЗДЕЛ В РАЗРАБОТКЕ • CINEMA OS"
+              },
+              {
+                "layout": "0,2,6,3",
+                "color": "msx-glass",
+                "headline": "Источники",
+                "text": "Управление подключёнными адаптерами — следующий этап."
+              },
+              {
+                "layout": "6,2,6,3",
+                "color": "msx-glass",
+                "headline": "Интерфейс",
+                "text": "Настройки оформления и поведения — следующий этап."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
