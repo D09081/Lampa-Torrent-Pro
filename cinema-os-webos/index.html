@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cinema OS</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="ambient"></div>
+<header class="topbar">
+  <div class="brand"><span class="brand-mark">C</span><span>CINEMA <b>OS</b></span></div>
+  <div class="top-meta"><span id="clock">CINEMA EXPERIENCE</span><span class="status"><i></i> LOCAL</span></div>
+</header>
+<main>
+  <section class="hero">
+    <div class="eyebrow">YOUR PERSONAL CINEMA</div>
+    <h1>Кино начинается<br><em>здесь.</em></h1>
+    <p>Единый центр поиска и просмотра фильмов.</p>
+    <div class="hero-actions">
+      <button class="primary focusable" data-action="catalog">ОТКРЫТЬ КАТАЛОГ</button>
+      <button class="secondary focusable" data-action="sources">ИСТОЧНИКИ</button>
+    </div>
+  </section>
+  <section class="section">
+    <div class="section-head"><div><div class="eyebrow">DISCOVER</div><h2>Киноцентр</h2></div><span class="hint">УПРАВЛЕНИЕ ПУЛЬТОМ LG</span></div>
+    <div class="tiles">
+      <button class="tile focusable" data-action="catalog"><span class="tile-icon">▦</span><b>Фильмы</b><small>Каталог и поиск</small></button>
+      <button class="tile focusable" data-action="series"><span class="tile-icon">▤</span><b>Сериалы</b><small>Сезоны и серии</small></button>
+      <button class="tile focusable" data-action="continue"><span class="tile-icon">▶</span><b>Продолжить</b><small>История просмотра</small></button>
+      <button class="tile focusable" data-action="sources"><span class="tile-icon">⌘</span><b>Источники</b><small>Модули просмотра</small></button>
+    </div>
+  </section>
+  <section class="section source-section">
+    <div class="section-head"><div><div class="eyebrow">SOURCE HUB</div><h2>Где смотреть</h2></div><button class="text-button focusable" data-action="sources">ВСЕ ИСТОЧНИКИ ↗</button></div>
+    <div id="source-strip" class="source-strip"></div>
+  </section>
+</main>
+<footer><span>CINEMA OS <b>0.1.0</b></span><span>BUILT FOR LG webOS 1.4</span></footer>
+<div id="dialog" class="dialog hidden"><div class="dialog-panel"><div class="dialog-head"><div><div class="eyebrow">CINEMA OS</div><h2 id="dialog-title"></h2></div><button id="dialog-close" class="close focusable">×</button></div><div id="dialog-body"></div><div class="dialog-foot">BACK / EXIT — НАЗАД</div></div></div>
+<script src="app.js"></script>
+</body>
+</html>
