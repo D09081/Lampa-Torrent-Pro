@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - cinema-os-webos
+      - media-station-tv-os
     paths:
       - "webos/**"
       - ".github/workflows/build-cinema-os.yml"
@@ -76,6 +77,7 @@ jobs:
           node --check webos/js/plugins/lampa-torrent-pro.js
           node --check webos/js/plugins/online-sources.js
           node --check webos/js/app.js
+          node --check webos/js/system-shell.js
 
       - name: Install webOS CLI
         run: npm install --global @webos-tools/cli@3.2.6

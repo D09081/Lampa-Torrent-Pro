@@ -1,14 +1,14 @@
 {
   "id": "com.d09081.cinemaos",
-  "version": "0.8.0",
+  "version": "1.0.0",
   "vendor": "D09081",
   "type": "web",
   "main": "index.html",
-  "title": "Cinema OS",
+  "title": "Media Station",
   "icon": "icon.png",
   "largeIcon": "largeIcon.png",
   "iconColor": "#090611",
   "bgColor": "#090611",
-  "appDescription": "Cinema OS — family cinema with source discovery and built-in player",
+  "appDescription": "Media Station Smart TV home shell with apps, inputs, network and settings",
   "resolution": "1280x720"
 }
